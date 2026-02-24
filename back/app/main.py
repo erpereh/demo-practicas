@@ -1,5 +1,9 @@
+
 from fastapi import FastAPI
+
 from app.routes import empleados
+from app.routes import clientes
+from app.routes import bancos
 
 app = FastAPI(
     title="API Control de Horas",
@@ -7,10 +11,12 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Ruta raíz (para comprobar que funciona)
+# Ruta raíz
 @app.get("/")
 def home():
-    return {"mensaje": "API de control de horas funcionando 🚀"}
+    return {"mensaje": "API de gestión funcionando correctamente"}
 
-# Incluir router de empleados
+# Registrar routers
 app.include_router(empleados.router)
+app.include_router(clientes.router)
+app.include_router(bancos.router)
