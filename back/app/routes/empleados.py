@@ -1,25 +1,40 @@
 from fastapi import APIRouter
+from app.models.empleado import Empleado
+from app.models.horas_trab import HorasTrab
 
 router = APIRouter()
 
-# Simulación de registros tipo Excel
-registros = [
-    {"nombre": "Juan", "departamento": "H2", "horas": 2, "dia": "12/01/2026"},
-    {"nombre": "Juan", "departamento": "H3", "horas": 4, "dia": "12/01/2026"},
-    {"nombre": "Juan", "departamento": "H2", "horas": 6, "dia": "13/01/2026"},
-    {"nombre": "Juan", "departamento": "H1", "horas": 3, "dia": "14/01/2026"},
-    {"nombre": "Juan", "departamento": "H2", "horas": 3, "dia": "14/01/2026"},
+# Simulación empleados
+empleados = [
+    Empleado("02906525S", "ALBA", "GARZO SOTO", None, "2022-05-05"),
+]
+
+# Simulación horas trabajadas
+horas_registradas = [
+    HorasTrab("01", "02906525S", "2026-01-26", "CYC", "SOP_META4", 5.22, "Implantación"),
+    HorasTrab("01", "02906525S", "2026-01-27", "CYC", "SOP_META4", 3.50, "Consultoría"),
 ]
 
 @router.get("/horas/{nombre}")
-def total_horas_por_empleado(nombre: str):
-    total = 0
+def total_horas_por_nombre(nombre: str):
 
-    for registro in registros:
-        if registro["nombre"].lower() == nombre.lower():
-            total += registro["horas"]
+    # Buscar empleado por nombre
+    empleado_encontrado = None
+    for emp in empleados:
+        if emp.nombre.lower() == nombre.lower():
+            empleado_encontrado = emp
+            break
+
+    if not empleado_encontrado:
+        return {"error": "Empleado no encontrado"}
+
+    # Sumar horas
+    total = 0
+    for registro in horas_registradas:
+        if registro.id_empleado == empleado_encontrado.id_empleado:
+            total += registro.horas_dia
 
     return {
-        "empleado": nombre,
+        "empleado": f"{empleado_encontrado.nombre} {empleado_encontrado.apellidos}",
         "total_horas": total
     }
