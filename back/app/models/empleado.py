@@ -1,6 +1,7 @@
 class Empleado:
-    def __init__(self, id_empleado, nombre, apellidos, matricula, fec_alta):
+    def __init__(self, id_empleado, id_empleado_tracker, nombre, apellidos, matricula, fec_alta):
         self.id_empleado = id_empleado
+        self.id_empleado_tracker = id_empleado_tracker
         self.nombre = nombre
         self.apellidos = apellidos
         self.matricula = matricula
