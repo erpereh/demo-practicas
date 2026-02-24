@@ -57,7 +57,7 @@ export default function RootLayout({
               </p>
               <ul className="space-y-2">
                 <li>
-                  <Link href="/" className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-gray-300 hover:bg-white/10 hover:text-white transition-all group">
+                  <Link href="/empleados" className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-gray-300 hover:bg-white/10 hover:text-white transition-all group">
                     <Users size={18} className="text-gray-400 group-hover:text-quality-red transition-colors" />
                     Empleados
                   </Link>
