@@ -6,6 +6,8 @@ from app.routes import clientes
 from app.routes import bancos
 from app.routes import proyectos
 from app.routes import tarifas
+from app.routes import factura
+
 
 
 app = FastAPI(
@@ -27,7 +29,8 @@ def home():
             "clientes",
             "bancos",
             "proyectos",
-            "tarifas"
+            "tarifas",
+            "factura"
         ]
     }
 
@@ -41,3 +44,4 @@ app.include_router(clientes.router)
 app.include_router(bancos.router)
 app.include_router(proyectos.router)
 app.include_router(tarifas.router)
+app.include_router(factura.router)
