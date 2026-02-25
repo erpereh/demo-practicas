@@ -1,3 +1,6 @@
+# Variables de entorno
+.env
+
 # Ignorar entorno virtual
 back/venv/
 
