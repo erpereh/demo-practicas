@@ -3,19 +3,13 @@ from app.models.cliente import Cliente
 
 router = APIRouter()
 
-# ===============================
-# DATOS EN MEMORIA
-# ===============================
-
 clientes = [
     Cliente("01", "CYC", "CYC IT SOLUTIONS", "A12345678", "Juan Pérez", "Madrid", True),
     Cliente("01", "ATOS", "ATOS IT SOLUTIONS S.L.", "A85908093", "Andrés Izquierdo", "Ronda de Europa 5", True),
 ]
 
-# ===============================
-# LISTAR CLIENTES
-# ===============================
 
+# LISTAR CLIENTES
 @router.get("/clientes")
 def listar_clientes():
     return [
@@ -31,10 +25,7 @@ def listar_clientes():
     ]
 
 
-# ===============================
 # CREAR CLIENTE
-# ===============================
-
 @router.post("/clientes")
 def crear_cliente(
     id_sociedad: str = Body(...),
@@ -62,10 +53,8 @@ def crear_cliente(
     return {"mensaje": "Cliente creado correctamente"}
 
 
-# ===============================
-# EDITAR CLIENTE
-# ===============================
 
+# EDITAR CLIENTE
 @router.put("/clientes/{id_cliente}")
 def editar_cliente(
     id_cliente: str,
@@ -90,10 +79,7 @@ def editar_cliente(
     return {"error": "Cliente no encontrado"}
 
 
-# ===============================
 # ARCHIVAR CLIENTE
-# ===============================
-
 @router.patch("/clientes/{id_cliente}/archivar")
 def archivar_cliente(id_cliente: str):
     for c in clientes:

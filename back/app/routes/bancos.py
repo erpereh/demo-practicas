@@ -3,19 +3,14 @@ from app.models.banco import Banco
 
 router = APIRouter()
 
-# ===============================
 # DATOS EN MEMORIA
-# ===============================
-
 bancos = [
     Banco("01", "001", "Banco Bilbao Vizcaya Argentaria", "0201582733", "ES8601822737190201582733", True),
     Banco("01", "002", "Banco Santander", "1234567890", "ES1123456789012345678901", True),
 ]
 
-# ===============================
-# LISTAR BANCOS
-# ===============================
 
+# LISTAR BANCOS
 @router.get("/bancos")
 def listar_bancos():
     return [
@@ -30,10 +25,7 @@ def listar_bancos():
     ]
 
 
-# ===============================
 # CREAR BANCO
-# ===============================
-
 @router.post("/bancos")
 def crear_banco(
     id_sociedad: str = Body(...),
@@ -59,10 +51,7 @@ def crear_banco(
     return {"mensaje": "Cuenta bancaria creada correctamente"}
 
 
-# ===============================
 # EDITAR BANCO
-# ===============================
-
 @router.put("/bancos/{id_banco}")
 def editar_banco(
     id_banco: str,
@@ -84,10 +73,7 @@ def editar_banco(
     return {"error": "Banco no encontrado"}
 
 
-# ===============================
 # ARCHIVAR BANCO
-# ===============================
-
 @router.patch("/bancos/{id_banco}/archivar")
 def archivar_banco(id_banco: str):
     for b in bancos:
