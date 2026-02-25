@@ -3,10 +3,9 @@ import { Montserrat } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
 import Image from "next/image";
-// Importamos los iconos de Lucide
-import { Users, Building2, FileSpreadsheet, LayoutDashboard } from "lucide-react";
+// Importamos todos los iconos necesarios, incluyendo Landmark para los bancos
+import { Users, Building2, FileSpreadsheet, Landmark } from "lucide-react";
 
-// Cambiamos la fuente a Montserrat, que es idéntica al estilo corporativo de la imagen
 const montserrat = Montserrat({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
@@ -23,7 +22,7 @@ export default function RootLayout({
     <html lang="es">
       <body className={`${montserrat.className} bg-quality-light flex h-screen overflow-hidden text-quality-dark`}>
 
-        {/* SIDEBAR LATERAL OSCURO - Ahora con más respiro */}
+        {/* SIDEBAR LATERAL OSCURO */}
         <aside className="w-72 bg-quality-dark text-white flex flex-col h-full shadow-2xl z-10">
 
           {/* ZONA DEL LOGO */}
@@ -47,10 +46,10 @@ export default function RootLayout({
             </p>
           </div>
 
-          {/* NAVEGACIÓN - Más espaciada */}
+          {/* NAVEGACIÓN */}
           <nav className="flex-1 px-5 py-6 space-y-10 overflow-y-auto">
 
-            {/* SECCIÓN 1 */}
+            {/* SECCIÓN 1: ADMINISTRACIÓN */}
             <div>
               <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 px-3">
                 Administración
@@ -63,15 +62,21 @@ export default function RootLayout({
                   </Link>
                 </li>
                 <li>
-                  <Link href="/" className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-gray-300 hover:bg-white/10 hover:text-white transition-all group">
+                  <Link href="/clientes" className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-gray-300 hover:bg-white/10 hover:text-white transition-all group">
                     <Building2 size={18} className="text-gray-400 group-hover:text-quality-red transition-colors" />
                     Clientes
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/bancos" className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-gray-300 hover:bg-white/10 hover:text-white transition-all group">
+                    <Landmark size={18} className="text-gray-400 group-hover:text-quality-red transition-colors" />
+                    Cuentas Bancarias
                   </Link>
                 </li>
               </ul>
             </div>
 
-            {/* SECCIÓN 2 */}
+            {/* SECCIÓN 2: CONTROL HORARIO */}
             <div>
               <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 px-3">
                 Control Horario
@@ -88,7 +93,7 @@ export default function RootLayout({
 
           </nav>
 
-          {/* ZONA INFERIOR (Opcional, para equilibrar el diseño) */}
+          {/* ZONA INFERIOR (Perfil Usuario) */}
           <div className="p-6 border-t border-gray-700/50">
             <div className="flex items-center gap-3 px-3">
               <div className="w-8 h-8 rounded-full bg-quality-red flex items-center justify-center text-sm font-bold shadow-md">
