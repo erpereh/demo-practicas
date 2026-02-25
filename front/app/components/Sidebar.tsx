@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Users, Building2, FileSpreadsheet, Landmark, FolderKanban, CircleDollarSign, Clock } from "lucide-react";
+import { Users, Building2, FileSpreadsheet, Landmark, FolderKanban, CircleDollarSign, Search, FileText, Clock } from "lucide-react";
 
 export default function Sidebar() {
     const pathname = usePathname();
@@ -12,8 +12,8 @@ export default function Sidebar() {
     const getLinkStyle = (path: string) => {
         const isActive = pathname === path;
         return `flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all group border ${isActive
-                ? "bg-quality-red/10 text-white border-quality-red/20 shadow-[0_0_15px_rgba(227,0,27,0.1)]"
-                : "text-gray-300 border-transparent hover:bg-white/10 hover:text-white"
+            ? "bg-quality-red/10 text-white border-quality-red/20 shadow-[0_0_15px_rgba(227,0,27,0.1)]"
+            : "text-gray-300 border-transparent hover:bg-white/10 hover:text-white"
             }`;
     };
 
@@ -48,7 +48,7 @@ export default function Sidebar() {
             </div>
 
             {/* NAVEGACIÓN */}
-            <nav className="flex-1 px-5 py-6 space-y-10 overflow-y-auto">
+            <nav className="flex-1 px-5 py-6 space-y-10 overflow-y-auto scrollbar-dark">
 
                 {/* SECCIÓN 1: ADMINISTRACIÓN */}
                 <div>
@@ -114,6 +114,21 @@ export default function Sidebar() {
                             <Link href="/horas" className={getLinkStyle("/horas")}>
                                 <Clock size={18} className={getIconStyle("/horas")} />
                                 Revisión de Horas
+                            </Link>
+                        </li>
+                    </ul>
+                </div>
+
+                {/* SECCIÓN 4: FACTURACIÓN */}
+                <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 px-3">
+                        Facturación
+                    </p>
+                    <ul className="space-y-2">
+                        <li>
+                            <Link href="/facturas" className={getLinkStyle("/facturas")}>
+                                <FileText size={18} className={getIconStyle("/facturas")} />
+                                Generar Facturas
                             </Link>
                         </li>
                     </ul>

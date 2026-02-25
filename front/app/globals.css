@@ -6,3 +6,29 @@
   --color-quality-light: #F3F4F6;
   --color-quality-gray: #6B7280;
 }
+
+/* ==========================================
+   ESTILOS PERSONALIZADOS PARA EL SCROLLBAR
+   ========================================== */
+
+/* Hacemos la barra mucho más fina */
+.scrollbar-dark::-webkit-scrollbar {
+  width: 5px;
+}
+
+/* El fondo por donde se mueve la barra (transparente para que no se vea un carril blanco) */
+.scrollbar-dark::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* La barra en sí (el 'pulgar') - Gris sutil y redondeado */
+.scrollbar-dark::-webkit-scrollbar-thumb {
+  background-color: #374151;
+  /* Un gris un poco más claro que el fondo del menú */
+  border-radius: 10px;
+}
+
+/* Al pasar el ratón por encima de la barra se ilumina un poco */
+.scrollbar-dark::-webkit-scrollbar-thumb:hover {
+  background-color: #4B5563;
+}
