@@ -3,8 +3,8 @@ import { Montserrat } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
 import Image from "next/image";
-// Importamos todos los iconos necesarios, incluyendo Landmark para los bancos
-import { Users, Building2, FileSpreadsheet, Landmark } from "lucide-react";
+// Importamos todos los iconos de Lucide necesarios
+import { Users, Building2, FileSpreadsheet, Landmark, FolderKanban, CircleDollarSign } from "lucide-react";
 
 const montserrat = Montserrat({ subsets: ["latin"] });
 
@@ -76,7 +76,28 @@ export default function RootLayout({
               </ul>
             </div>
 
-            {/* SECCIÓN 2: CONTROL HORARIO */}
+            {/* SECCIÓN 2: PROYECTOS Y TARIFAS */}
+            <div>
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 px-3">
+                Proyectos y Tarifas
+              </p>
+              <ul className="space-y-2">
+                <li>
+                  <Link href="/proyectos" className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-gray-300 hover:bg-white/10 hover:text-white transition-all group">
+                    <FolderKanban size={18} className="text-gray-400 group-hover:text-quality-red transition-colors" />
+                    Proyectos
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/tarifas" className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-gray-300 hover:bg-white/10 hover:text-white transition-all group">
+                    <CircleDollarSign size={18} className="text-gray-400 group-hover:text-quality-red transition-colors" />
+                    Asignación Tarifas
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* SECCIÓN 3: CONTROL HORARIO */}
             <div>
               <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 px-3">
                 Control Horario
