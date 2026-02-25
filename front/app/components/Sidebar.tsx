@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Users, Building2, FileSpreadsheet, Landmark, FolderKanban, CircleDollarSign } from "lucide-react";
+import { Users, Building2, FileSpreadsheet, Landmark, FolderKanban, CircleDollarSign, Clock } from "lucide-react";
 
 export default function Sidebar() {
     const pathname = usePathname();
@@ -108,6 +108,12 @@ export default function Sidebar() {
                             <Link href="/importar" className={getLinkStyle("/importar")}>
                                 <FileSpreadsheet size={18} className={getIconStyle("/importar")} />
                                 Importar Excel
+                            </Link>
+                        </li>
+                        <li>
+                            <Link href="/horas" className={getLinkStyle("/horas")}>
+                                <Clock size={18} className={getIconStyle("/horas")} />
+                                Revisión de Horas
                             </Link>
                         </li>
                     </ul>
