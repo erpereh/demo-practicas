@@ -9,7 +9,7 @@ fichajes = [
 ]
 
 # LISTAR FICHAJES
-@router.get("/fichajes")
+@router.get("/horas")
 def listar_fichajes():
     return [
         {
@@ -25,7 +25,7 @@ def listar_fichajes():
 
 
 # LISTAR FICHAJES POR EMPLEADO
-@router.get("/fichajes/{id_empleado}")
+@router.get("/horas/{id_empleado}")
 def listar_fichajes_emp(id_empleado: str):
     for f in fichajes:
         if f.id_empleado == id_empleado:
@@ -43,7 +43,7 @@ def listar_fichajes_emp(id_empleado: str):
 
 
 # LISTAR FICHAJES POR PROYECTO
-@router.get("/fichajes/{id_proyecto}")
+@router.get("/horas/{id_proyecto}")
 def listar_fichajes_pro(id_proyecto: str):
     for f in fichajes:
         if f.id_proyecto == id_proyecto:
@@ -61,7 +61,7 @@ def listar_fichajes_pro(id_proyecto: str):
     
 
 # LISTAR FICHAJES POR FECHA
-@router.get("/fichajes/{fecha}")
+@router.get("/horas/{fecha}")
 def listar_fichajes_fecha(fecha: str):
     for f in fichajes:
         if f.fecha == fecha:
@@ -79,7 +79,7 @@ def listar_fichajes_fecha(fecha: str):
 
 
 # LISTAR FICHAJES POR MES
-@router.get("/fichajes/{fecha}")
+@router.get("/horas/{fecha}")
 def listar_fichajes_emp(fecha: str):
     for f in fichajes:
         if f.fecha == fecha:
@@ -97,7 +97,7 @@ def listar_fichajes_emp(fecha: str):
  
 
 # CREAR BANCO
-@router.post("/fichajes")
+@router.post("/horas")
 def fichar_manual(
     id_fichaje: str = Body(...),
     fecha: str = Body(...),
@@ -126,7 +126,7 @@ def fichar_manual(
 
 
 # EDITAR BANCO
-@router.put("/fichajes/{id_fichaje}")
+@router.put("/horas/{id_fichaje}")
 def editar_fichado(
     id_fichaje: str,
     hora_inicio: str = Body(None),
@@ -146,7 +146,7 @@ def editar_fichado(
 
 
 # ARCHIVAR BANCO
-@router.patch("/fichajes/{id_fichaje}/archivar")
+@router.patch("/horas/{id_fichaje}/archivar")
 def archivar_fichaje(id_fichaje: str):
     for f in fichajes:
         if f.id_fichaje == id_fichaje:
