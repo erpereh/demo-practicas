@@ -38,14 +38,13 @@ def listar_clientes(
 
 @router.post("/clientes", response_model=ClienteOut, status_code=status.HTTP_201_CREATED)
 def crear_cliente(payload: ClienteCreate, db: Session = Depends(get_db)):
-    # PK: ID_CLIENTE (según enunciado)
     existing = db.execute(
         select(Cliente).where(Cliente.id_cliente == payload.id_cliente)
     ).scalar_one_or_none()
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Ya existe un cliente con ese código (ID_CLIENTE)")
 
-    # Extra útil sin tocar BBDD: evitar duplicar CIF dentro de la sociedad
+
     dup_cif = db.execute(
         select(Cliente).where(
             Cliente.id_sociedad == payload.id_sociedad,
@@ -81,7 +80,7 @@ def editar_cliente(id_cliente: str, payload: ClienteUpdate, db: Session = Depend
     if not cliente:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente no encontrado")
 
-    # Si cambia CIF, evitar duplicado en misma sociedad
+    
     if payload.cif and payload.cif != cliente.cif:
         dup_cif = db.execute(
             select(Cliente).where(
@@ -108,10 +107,7 @@ def editar_cliente(id_cliente: str, payload: ClienteUpdate, db: Session = Depend
 
 @router.patch("/clientes/{id_cliente}/archivar")
 def archivar_cliente(id_cliente: str, db: Session = Depends(get_db)):
-    """
-    Enunciado pide "archivar". Como la BBDD NO tiene columna ACTIVO/ESTADO y no quieres modificarla,
-    aquí "archivar" se implementa como eliminar el registro (desaparece del listado).
-    """
+   
     id_cliente = id_cliente.upper()
 
     cliente = db.execute(
