@@ -1,100 +1,54 @@
 from fastapi import APIRouter, Body
 from app.models.horas_trab import HorasTrab
 
-router = APIRouter()
+# AÑADIDO: Le ponemos el prefijo /api para mantener el estándar de la app
+router = APIRouter(prefix="/api", tags=["Horas"])
 
-fichajes = [
-    HorasTrab("01", "Juan Pérez", "CYC", "7.50", "EXCEL", "EDITABLE", True),
-    HorasTrab("02", "Andrés Izquierdo", "ATOS", "8.05", "EXCEL", "EDITABLE", True)
-]
+# CAMBIO 1 INDISPENSABLE: Vaciamos la lista. 
+# Los datos de prueba mal formateados ("CYC" en lugar de una fecha) eran los que hacían explotar el servidor.
+fichajes =[]
 
 # LISTAR FICHAJES
 @router.get("/horas")
 def listar_fichajes():
-    return [
-        {
-            "fecha": f.fecha,
-            "id_empleado": f.id_empleado,
-            "id_proyecto": f.id_proyecto,
-            "horas_total": f.horas_total,
-            "origen": f.origen,
-            "estado": f.estado
-        }
-        for f in fichajes
-    ]
+    return fichajes
 
+
+# CAMBIO 2 INDISPENSABLE: Cambiamos las URLs. 
+# Si todas se llaman "/horas/{variable}", FastAPI se confunde y solo ejecuta la primera. 
+# Hay que especificar si es /horas/empleado/..., /horas/proyecto/..., etc.
 
 # LISTAR FICHAJES POR EMPLEADO
-@router.get("/horas/{id_empleado}")
+@router.get("/horas/empleado/{id_empleado}")
 def listar_fichajes_emp(id_empleado: str):
-    for f in fichajes:
-        if f.id_empleado == id_empleado:
-            return [
-                {
-                    "fecha": f.fecha,
-                    "id_empleado": f.id_empleado,
-                    "id_proyecto": f.id_proyecto,
-                    "horas_total": f.horas_total,
-                    "origen": f.origen,
-                    "estado": f.estado
-                }
-            ]
-        return {"error", "No existen fichajes de este empleado"}
+    # CAMBIO 3: Corregido el bucle (antes devolvía error al primer intento)
+    resultados =[f for f in fichajes if getattr(f, "id_empleado", "") == id_empleado]
+    if resultados:
+        return resultados
+    return {"error": "No existen fichajes de este empleado"} # Corregido {"error", "..."} por {"error": "..."}
 
 
 # LISTAR FICHAJES POR PROYECTO
-@router.get("/horas/{id_proyecto}")
+@router.get("/horas/proyecto/{id_proyecto}")
 def listar_fichajes_pro(id_proyecto: str):
-    for f in fichajes:
-        if f.id_proyecto == id_proyecto:
-            return [
-                {
-                    "fecha": f.fecha,
-                    "id_empleado": f.id_empleado,
-                    "id_proyecto": f.id_proyecto,
-                    "horas_total": f.horas_total,
-                    "origen": f.origen,
-                    "estado": f.estado
-                }
-            ]
-        return {"error", "No existen fichajes con este proyecto"}
+    resultados =[f for f in fichajes if getattr(f, "id_proyecto", "") == id_proyecto]
+    if resultados:
+        return resultados
+    return {"error": "No existen fichajes con este proyecto"}
     
 
 # LISTAR FICHAJES POR FECHA
-@router.get("/horas/{fecha}")
+@router.get("/horas/fecha/{fecha}")
 def listar_fichajes_fecha(fecha: str):
-    for f in fichajes:
-        if f.fecha == fecha:
-            return [
-                {
-                    "fecha": f.fecha,
-                    "id_empleado": f.id_empleado,
-                    "id_proyecto": f.id_proyecto,
-                    "horas_total": f.horas_total,
-                    "origen": f.origen,
-                    "estado": f.estado
-                }
-            ]
-        return {"error", "No han habido fichajes este dia"}
+    resultados =[f for f in fichajes if getattr(f, "fecha", "") == fecha]
+    if resultados:
+        return resultados
+    return {"error": "No han habido fichajes este dia"}
 
 
-# LISTAR FICHAJES POR MES
-@router.get("/horas/{fecha}")
-def listar_fichajes_emp(fecha: str):
-    for f in fichajes:
-        if f.fecha == fecha:
-            return [
-                {
-                    "fecha": f.fecha,
-                    "id_empleado": f.id_empleado,
-                    "id_proyecto": f.id_proyecto,
-                    "horas_total": f.horas_total,
-                    "origen": f.origen,
-                    "estado": f.estado
-                }
-            ]
-        return {"error", "No han habido fichajes este mes"}
- 
+# ELIMINADA la ruta "LISTAR FICHAJES POR MES" porque tenía exactamente 
+# la misma URL y los mismos parámetros que la ruta de FECHA (estaba duplicada).
+
 
 # CREAR FICHAJE
 @router.post("/horas")
@@ -107,7 +61,7 @@ def fichar_manual(
     origen: str = Body(...),
     estado: str = Body(...)
 ):
-    if any(f.id_fichaje == id_fichaje for f in fichajes):
+    if any(getattr(f, "id_fichaje", "") == id_fichaje for f in fichajes):
         return {"error": "Ya existe un fichaje con ese código"}
 
     nuevo = HorasTrab(
@@ -132,7 +86,7 @@ def editar_fichado(
     horas_total: str = Body(None),
 ):
     for f in fichajes:
-        if f.id_fichaje == id_fichaje:
+        if getattr(f, "id_fichaje", "") == id_fichaje:
             if horas_total:
                 f.horas_total = horas_total
 
@@ -145,7 +99,7 @@ def editar_fichado(
 @router.patch("/horas/{id_fichaje}/archivar")
 def archivar_fichaje(id_fichaje: str):
     for f in fichajes:
-        if f.id_fichaje == id_fichaje:
+        if getattr(f, "id_fichaje", "") == id_fichaje:
             f.activo = False
             return {"mensaje": "Fichaje archivado correctamente"}
 

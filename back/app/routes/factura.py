@@ -1,24 +1,30 @@
 from fastapi import APIRouter, Body
-from app.routes.empleados import empleados, horas_registradas
 
-router = APIRouter()
+# CAMBIO CRÍTICO: Eliminamos el import que rompe el servidor
+# from app.routes.empleados import empleados, horas_registradas
+
+# Creamos las variables aquí vacías para que el código de abajo no explote
+empleados =[]
+horas_registradas =[]
+
+# Añadimos el prefijo /api
+router = APIRouter(prefix="/api", tags=["Facturas"])
 
 # Facturas en memoria (luego irá a BBDD)
-facturas_emitidas = []
+facturas_emitidas =[]
 _factura_seq = 1
 
 # Tarifa en memoria (luego irá a BBDD)
-# Ajusta esta estructura a tu routes/tarifas.py si ya lo tienes ahí
-tarifas_asignadas = [
+tarifas_asignadas =[
     {"id_empleado": "02906525S", "id_proyecto": "SOP_META4", "precio_hora": 45.50, "activa": True},
     {"id_empleado": "12345678A", "id_proyecto": "PROY001", "precio_hora": 35.00, "activa": True},
 ]
 
 def _get_empleado_nombre(dni: str) -> str:
-    emp = next((e for e in empleados if e.id_empleado == dni), None)
+    emp = next((e for e in empleados if getattr(e, "id_empleado", "") == dni), None)
     if not emp:
         return dni
-    return f"{emp.nombre} {emp.apellidos}"
+    return f"{getattr(emp, 'nombre', '')} {getattr(emp, 'apellidos', '')}"
 
 def _get_tarifa(dni: str, id_proyecto: str):
     t = next(
@@ -30,27 +36,27 @@ def _get_tarifa(dni: str, id_proyecto: str):
 
 def _preview_calculo(anio: int, mes: int, id_cliente: str):
     # Horas pendientes (no facturadas) del cliente/mes/año
-    pendientes = [
+    pendientes =[
         h for h in horas_registradas
-        if h.id_cliente == id_cliente
-        and h.fecha.year == anio
-        and h.fecha.month == mes
+        if getattr(h, "id_cliente", "") == id_cliente
+        and getattr(h, "fecha", None) and h.fecha.year == anio
+        and getattr(h, "fecha", None) and h.fecha.month == mes
         and getattr(h, "facturada", False) is False
     ]
 
-    alertas = []
+    alertas =[]
     if not pendientes:
         alertas.append("No hay horas pendientes de facturar para ese cliente/mes/año.")
 
     # Agrupar por empleado + proyecto
     agrupado = {}
     for h in pendientes:
-        key = (h.id_empleado, h.id_proyecto)
+        key = (getattr(h, "id_empleado", ""), getattr(h, "id_proyecto", ""))
         if key not in agrupado:
             agrupado[key] = {"horas": 0.0}
-        agrupado[key]["horas"] += float(h.horas_dia)
+        agrupado[key]["horas"] += float(getattr(h, "horas_dia", 0))
 
-    lineas = []
+    lineas =[]
     total_horas = 0.0
     total_importe = 0.0
 
@@ -144,9 +150,9 @@ def generar_factura(
     _factura_seq += 1
     facturas_emitidas.append(factura)
 
-    # BLOQUEAR horas del mes/año/cliente (marcar facturada=True y asignar factura id)
+    # BLOQUEAR horas del mes/año/cliente
     for h in horas_registradas:
-        if h.id_cliente == id_cliente and h.fecha.year == anio and h.fecha.month == mes:
+        if getattr(h, "id_cliente", "") == id_cliente and getattr(h, "fecha", None) and h.fecha.year == anio and h.fecha.month == mes:
             if getattr(h, "facturada", False) is False:
                 h.facturada = True
                 h.factura_id = factura["id_factura"]

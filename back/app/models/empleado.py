@@ -1,9 +1,12 @@
-class Empleado:
-    def __init__(self, id_empleado, id_empleado_tracker, nombre, apellidos, matricula, fec_alta, activo=True):
-        self.id_empleado = id_empleado
-        self.id_empleado_tracker = id_empleado_tracker
-        self.nombre = nombre
-        self.apellidos = apellidos
-        self.matricula = matricula
-        self.fec_alta = fec_alta
-        self.activo = activo
+from sqlalchemy import Column, Integer, String
+# EL CAMBIO ESTÁ AQUÍ: Añadimos "app." delante de database
+from app.database import Base
+
+class Empleado(Base):
+    __tablename__ = "empleados"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(100), nullable=False)
+    dni = Column(String(20), unique=True, index=True, nullable=False)
+    codigo_fichaje = Column(String(50), unique=True, nullable=False)
+    estado = Column(String(20), default="Activo")

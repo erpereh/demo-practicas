@@ -1,8 +1,10 @@
-class Banco:
-    def __init__(self, id_sociedad, id_banco_cobro, n_banco_cobro, num_cuenta, codigo_iban, activo=True):
-        self.id_sociedad = id_sociedad
-        self.id_banco_cobro = id_banco_cobro
-        self.n_banco_cobro = n_banco_cobro
-        self.num_cuenta = num_cuenta
-        self.codigo_iban = codigo_iban
-        self.activo = activo
+from sqlalchemy import Column, Integer, String
+from app.database import Base
+
+class Banco(Base):
+    __tablename__ = "bancos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    entidad = Column(String(100), nullable=False)
+    iban = Column(String(34), unique=True, index=True, nullable=False)
+    estado = Column(String(20), default="Principal")

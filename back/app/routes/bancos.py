@@ -1,98 +1,135 @@
 import re
-from fastapi import APIRouter, Body, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from typing import List, Optional
+
+from app.database import get_db
 from app.models.banco import Banco
 
-router = APIRouter()
+router = APIRouter(prefix="/api/bancos", tags=["Bancos"])
 
-# DATOS EN MEMORIA
-bancos = [
-    Banco("01", "001", "Banco Bilbao Vizcaya Argentaria", "0201582733", "ES8601822737190201582733", True),
-    Banco("01", "002", "Banco Santander", "1234567890", "ES1123456789012345678901", True),
-]
-
-# --- UTILIDADES DE VALIDACIÓN ---
-def validar_iban_formato(iban: str):
+# ==========================================
+# 1. UTILIDADES DE VALIDACIÓN (Adaptadas)
+# ==========================================
+def validar_y_limpiar_iban(iban: str) -> str:
     # Limpiar espacios y pasar a mayúsculas
-    iban = iban.replace(" ", "").upper()
-    # Regex: 2 letras + 2 dígitos + entre 10 y 30 alfanuméricos
-    if not re.match(r"^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$", iban):
-        raise HTTPException(status_code=400, detail="El formato del IBAN es inválido.")
-    # Validación específica España
-    if iban.startswith("ES") and len(iban) != 24:
-        raise HTTPException(status_code=400, detail="Un IBAN español debe tener 24 caracteres.")
-    return iban
+    iban_limpio = iban.replace(" ", "").upper()
+    
+    # Validación básica de formato (Regex genérico para IBAN)
+    if not re.match(r"^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$", iban_limpio):
+        raise HTTPException(
+            status_code=400, 
+            detail="El formato del IBAN es inválido. Debe empezar por 2 letras y seguir con dígitos."
+        )
+    
+    # Validación específica España (24 caracteres)
+    if iban_limpio.startswith("ES") and len(iban_limpio) != 24:
+        raise HTTPException(
+            status_code=400, 
+            detail="Un IBAN español debe tener exactamente 24 caracteres."
+        )
+        
+    return iban_limpio
 
-def validar_cuenta_formato(cuenta: str):
-    if not re.match(r"^\d{10}$", cuenta):
-        raise HTTPException(status_code=400, detail="El número de cuenta debe tener exactamente 10 dígitos.")
-    return cuenta
+# ==========================================
+# 2. ESQUEMAS PYDANTIC
+# ==========================================
+class BancoBase(BaseModel):
+    entidad: str
+    iban: str
+    estado: str = "Principal"
 
-# --- ENDPOINTS ---
+class BancoCreate(BancoBase):
+    pass
 
-@router.get("/bancos")
-def listar_bancos():
-    return [
-        {
-            "id_banco": b.id_banco_cobro,
-            "nombre": b.n_banco_cobro,
-            "num_cuenta": b.num_cuenta,
-            "iban": b.codigo_iban,
-            "activo": b.activo
-        }
-        for b in bancos
-    ]
+class BancoUpdate(BaseModel):
+    entidad: Optional[str] = None
+    iban: Optional[str] = None
+    estado: Optional[str] = None
 
-@router.post("/bancos", status_code=status.HTTP_201_CREATED)
-def crear_banco(
-    id_sociedad: str = Body(...),
-    id_banco_cobro: str = Body(...),
-    n_banco_cobro: str = Body(...),
-    num_cuenta: str = Body(...),
-    codigo_iban: str = Body(...)
-):
-    # Validaciones de formato
-    iban_ok = validar_iban_formato(codigo_iban)
-    cuenta_ok = validar_cuenta_formato(num_cuenta)
+class BancoResponse(BancoBase):
+    id: int
+    
+    class Config:
+        from_attributes = True
 
-    if any(b.id_banco_cobro == id_banco_cobro for b in bancos):
-        raise HTTPException(status_code=400, detail="Ya existe un banco con ese código.")
+# ==========================================
+# 3. ENDPOINTS
+# ==========================================
 
-    nuevo = Banco(
-        id_sociedad,
-        id_banco_cobro,
-        n_banco_cobro,
-        cuenta_ok,
-        iban_ok,
-        True
+# LISTAR BANCOS
+@router.get("/", response_model=List[BancoResponse])
+def listar_bancos(db: Session = Depends(get_db)):
+    return db.query(Banco).all()
+
+
+# CREAR BANCO
+@router.post("/", response_model=BancoResponse, status_code=status.HTTP_201_CREATED)
+def crear_banco(payload: BancoCreate, db: Session = Depends(get_db)):
+    # 1. Validar formato IBAN
+    iban_limpio = validar_y_limpiar_iban(payload.iban)
+
+    # 2. Validar que no exista ya en BBDD
+    banco_existente = db.query(Banco).filter(Banco.iban == iban_limpio).first()
+    if banco_existente:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, 
+            detail="Ya existe una cuenta bancaria registrada con ese IBAN."
+        )
+
+    # 3. Guardar
+    nuevo_banco = Banco(
+        entidad=payload.entidad.strip(),
+        iban=iban_limpio,
+        estado=payload.estado
     )
-    bancos.append(nuevo)
-    return {"mensaje": "Cuenta bancaria creada correctamente"}
+    
+    db.add(nuevo_banco)
+    db.commit()
+    db.refresh(nuevo_banco)
+    
+    return nuevo_banco
 
-@router.put("/bancos/{id_banco}")
-def editar_banco(
-    id_banco: str,
-    n_banco_cobro: str = Body(None),
-    num_cuenta: str = Body(None),
-    codigo_iban: str = Body(None)
-):
-    for b in bancos:
-        if b.id_banco_cobro == id_banco:
-            if n_banco_cobro:
-                b.n_banco_cobro = n_banco_cobro
-            if num_cuenta:
-                b.num_cuenta = validar_cuenta_formato(num_cuenta)
-            if codigo_iban:
-                b.codigo_iban = validar_iban_formato(codigo_iban)
 
-            return {"mensaje": "Cuenta bancaria actualizada"}
+# EDITAR BANCO
+@router.put("/{banco_id}", response_model=BancoResponse)
+def editar_banco(banco_id: int, payload: BancoUpdate, db: Session = Depends(get_db)):
+    banco = db.query(Banco).filter(Banco.id == banco_id).first()
 
-    raise HTTPException(status_code=404, detail="Banco no encontrado")
+    if not banco:
+        raise HTTPException(status_code=404, detail="Cuenta bancaria no encontrada")
 
-@router.patch("/bancos/{id_banco}/archivar")
-def archivar_banco(id_banco: str):
-    for b in bancos:
-        if b.id_banco_cobro == id_banco:
-            b.activo = False
-            return {"mensaje": "Cuenta bancaria archivada"}
+    # Si cambia el IBAN, validamos formato y duplicados
+    if payload.iban:
+        iban_nuevo = validar_y_limpiar_iban(payload.iban)
+        if iban_nuevo != banco.iban:
+            otro = db.query(Banco).filter(Banco.iban == iban_nuevo).first()
+            if otro:
+                raise HTTPException(status_code=409, detail="El nuevo IBAN ya está registrado en otra cuenta.")
+            banco.iban = iban_nuevo
 
-    raise HTTPException(status_code=404, detail="Banco no encontrado")
+    if payload.entidad is not None:
+        banco.entidad = payload.entidad.strip()
+    
+    if payload.estado is not None:
+        banco.estado = payload.estado
+
+    db.commit()
+    db.refresh(banco)
+    return banco
+
+
+# ARCHIVAR BANCO (Soft Delete)
+@router.patch("/{banco_id}/archivar")
+def archivar_banco(banco_id: int, db: Session = Depends(get_db)):
+    banco = db.query(Banco).filter(Banco.id == banco_id).first()
+
+    if not banco:
+        raise HTTPException(status_code=404, detail="Cuenta bancaria no encontrada")
+
+    # Cambiamos estado a "Inactiva" o "Archivada"
+    banco.estado = "Archivada"
+    db.commit()
+
+    return {"mensaje": "Cuenta bancaria archivada correctamente"}
