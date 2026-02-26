@@ -1,9 +1,12 @@
-from fastapi import APIRouter, Query, Body
+from fastapi import APIRouter, Query, Body, HTTPException
+from datetime import datetime
 from app.models.empleado import Empleado
 from app.models.horas_trab import HorasTrab
 
-router = APIRouter()
+router = APIRouter(tags=["Empleados"])
 
+
+# DATOS (LOCAL)
 empleados = [
     Empleado("02906525S", None, "ALBA", "GARZO SOTO", None, "2022-05-05", True),
     Empleado("12345678A", "TRK001", "CARLOS", "PEREZ LOPEZ", None, "2023-01-10", True),
@@ -11,21 +14,13 @@ empleados = [
 ]
 
 horas_registradas = [
-    HorasTrab("01", "02906525S", "2026-01-26", "CYC", "SOP_META4", 5.22, "Implantación"),
-    HorasTrab("01", "02906525S", "2026-01-27", "CYC", "SOP_META4", 3.50, "Consultoría"),
-
-    HorasTrab("01", "02906525S", "2026-02-03", "CYC", "SOP_META4", 4.00, "Reunión"),
-    HorasTrab("01", "02906525S", "2026-02-15", "CYC", "SOP_META4", 6.00, "Análisis"),
-
-    HorasTrab("01", "02906525S", "2025-01-10", "CYC", "SOP_META4", 7.00, "Testing"),
-
-    HorasTrab("01", "12345678A", "2026-01-05", "ATOS", "PROY001", 8.00, "Soporte técnico"),
+    HorasTrab("01", "02906525S", "2026-01-26", "CYC", "SOP_META4", 5.22, "Implantación", "MANUAL", "VALIDADA"),
+    HorasTrab("01", "02906525S", "2026-01-27", "CYC", "SOP_META4", 3.50, "Consultoría", "MANUAL", "VALIDADA"),
 ]
 
 
-
-# LISTADO EMPLEADOS
-@router.get("/empleados")
+# LISTAR EMPLEADOS
+@router.get("/empleados", summary="Listado de empleados")
 def listar_empleados():
     return [
         {
@@ -40,7 +35,7 @@ def listar_empleados():
 
 
 # CREAR EMPLEADO
-@router.post("/empleados")
+@router.post("/empleados", summary="Crear empleado")
 def crear_empleado(
     id_empleado: str = Body(...),
     id_empleado_tracker: str = Body(None),
@@ -49,15 +44,37 @@ def crear_empleado(
     matricula: str = Body(None),
     fec_alta: str = Body(...)
 ):
+    # Normalizar DNI
+    id_empleado = id_empleado.upper().strip()
+
+    # Validar DNI
+    if not validar_dni(id_empleado):
+        raise HTTPException(
+            status_code=400,
+            detail="DNI no válido. Debe tener 8 números y letra correcta."
+        )
+
     # Validar DNI único
     if any(emp.id_empleado == id_empleado for emp in empleados):
-        return {"error": "Ya existe un empleado con ese DNI"}
+        raise HTTPException(
+            status_code=400,
+            detail="Ya existe un empleado con ese DNI"
+        )
+
+    # Validar fecha formato YYYY-MM-DD
+    try:
+        datetime.strptime(fec_alta, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Formato de fecha incorrecto. Use YYYY-MM-DD"
+        )
 
     nuevo = Empleado(
         id_empleado,
         id_empleado_tracker,
-        nombre,
-        apellidos,
+        nombre.upper().strip(),
+        apellidos.upper().strip(),
         matricula,
         fec_alta,
         True
@@ -65,12 +82,13 @@ def crear_empleado(
 
     empleados.append(nuevo)
 
-    return {"mensaje": "Empleado creado correctamente"}
-
-
+    return {
+        "mensaje": "Empleado creado correctamente",
+        "dni": id_empleado
+    }
 
 # EDITAR EMPLEADO
-@router.put("/empleados/{dni}")
+@router.put("/empleados/{dni}", summary="Editar empleado")
 def editar_empleado(
     dni: str,
     nombre: str = Body(None),
@@ -79,44 +97,52 @@ def editar_empleado(
 ):
     for emp in empleados:
         if emp.id_empleado == dni:
+
             if nombre:
-                emp.nombre = nombre
+                emp.nombre = nombre.upper()
+
             if apellidos:
-                emp.apellidos = apellidos
+                emp.apellidos = apellidos.upper()
+
             if matricula:
                 emp.matricula = matricula
 
-            return {"mensaje": "Empleado actualizado"}
+            return {"mensaje": "Empleado actualizado correctamente"}
 
-    return {"error": "Empleado no encontrado"}
+    raise HTTPException(status_code=404, detail="Empleado no encontrado")
+
 
 
 # ARCHIVAR EMPLEADO
-@router.patch("/empleados/{dni}/archivar")
+@router.patch("/empleados/{dni}/archivar", summary="Archivar empleado")
 def archivar_empleado(dni: str):
     for emp in empleados:
         if emp.id_empleado == dni:
             emp.activo = False
-            return {"mensaje": "Empleado archivado"}
+            return {"mensaje": "Empleado archivado correctamente"}
 
-    return {"error": "Empleado no encontrado"}
+    raise HTTPException(status_code=404, detail="Empleado no encontrado")
 
 
 
-# HORAS POR MES
-@router.get("/horas/{nombre}")
+# HORAS POR MES 
+@router.get("/horas/{nombre}", summary="Horas totales por empleado y mes")
 def total_horas_por_nombre(
     nombre: str,
-    anio: int = Query(..., ge=2000, le=2100),
-    mes: int = Query(..., ge=1, le=12)
+    anio: int = Query(..., ge=2000, le=2100, description="Año en formato YYYY"),
+    mes: int = Query(..., ge=1, le=12, description="Mes (1-12)")
 ):
+    # No permitir años futuros
+    if anio > datetime.now().year:
+        raise HTTPException(status_code=400, detail="No se permiten años futuros")
+
     empleado_encontrado = next(
         (emp for emp in empleados if emp.nombre.lower() == nombre.lower()),
         None
     )
 
     if not empleado_encontrado:
-        return {"error": "Empleado no encontrado"}
+        raise HTTPException(status_code=404, detail="Empleado no encontrado")
 
     total = sum(
         registro.horas_dia
