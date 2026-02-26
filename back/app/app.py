@@ -42,7 +42,7 @@ def preview_horas():
         for index, fila in df.iterrows():
             ID_SOCIEDAD = fila.get('ID_SOCIEDAD')
             ID_EMPLEADO = fila.get('ID_EMPLEADO')
-            FECHA = fila.get('FECHA')
+            FECHA = pd.to_datetime(fila.get('FECHA'), dayfirst=True).date()
             ID_CLIENTE = fila.get('ID_CLIENTE')
             ID_PROYECTO = fila.get('ID_PROYECTO')
             HORAS_DIA = fila.get('HORAS_DIA')
@@ -128,15 +128,17 @@ def confirm_horas():
         return jsonify({"error": "No hay datos para confirmar"}), 400
 
     try:
+
+        # 👇 IMPORTANTE: esto va dentro de la función
+        for fila in filas_validas:
+            fila["FECHA"] = pd.to_datetime(fila["FECHA"]).date()
+
         with engine.begin() as conn:
             conn.execute(
                 text("""
                     INSERT INTO HORAS_TRAB
-                    (ID_SOCIEDAD, ID_EMPLEADO, FECHA, ID_CLIENTE,
-                     ID_PROYECTO, HORAS_DIA, DESC_TAREA)
-                    VALUES (:ID_SOCIEDAD, :ID_EMPLEADO, :FECHA,
-                            :ID_CLIENTE, :ID_PROYECTO,
-                            :HORAS_DIA, :DESC_TAREA)
+                    (ID_SOCIEDAD, ID_EMPLEADO, FECHA, ID_CLIENTE, ID_PROYECTO, HORAS_DIA, DESC_TAREA)
+                    VALUES (:ID_SOCIEDAD, :ID_EMPLEADO, :FECHA, :ID_CLIENTE, :ID_PROYECTO, :HORAS_DIA, :DESC_TAREA)
                 """),
                 filas_validas
             )
