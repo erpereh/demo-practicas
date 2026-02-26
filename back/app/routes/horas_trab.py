@@ -96,14 +96,14 @@ def listar_fichajes_emp(fecha: str):
         return {"error", "No han habido fichajes este mes"}
  
 
-# CREAR BANCO
+# CREAR FICHAJE
 @router.post("/horas")
 def fichar_manual(
     id_fichaje: str = Body(...),
     fecha: str = Body(...),
     id_empleado: str = Body(...),
     id_proyecto: str = Body(...),
-    horas_dia: str = Body(...),
+    horas_total: str = Body(...),
     origen: str = Body(...),
     estado: str = Body(...)
 ):
@@ -115,7 +115,7 @@ def fichar_manual(
         fecha,
         id_empleado,
         id_proyecto,
-        horas_dia,
+        horas_total,
         origen,
         estado
     )
@@ -125,32 +125,28 @@ def fichar_manual(
     return {"mensaje": "Fichaje creado correctamente"}
 
 
-# EDITAR BANCO
+# EDITAR FICHAJE
 @router.put("/horas/{id_fichaje}")
 def editar_fichado(
     id_fichaje: str,
-    hora_inicio: str = Body(None),
-    hora_fin: str = Body(None)
+    horas_total: str = Body(None),
 ):
     for f in fichajes:
         if f.id_fichaje == id_fichaje:
-            if hora_inicio:
-                f.hora_inicio = hora_inicio
-            if hora_fin:
-                f.hora_fin = hora_fin
-            
-            f.horas_total = f.hora_fin - f.hora_inicio
+            if horas_total:
+                f.horas_total = horas_total
+
             return {"mensaje": "Fichaje actualizado correctamente"}
 
     return {"error": "Fichaje no encontrado"}
 
 
-# ARCHIVAR BANCO
+# ARCHIVAR FICHAJE
 @router.patch("/horas/{id_fichaje}/archivar")
 def archivar_fichaje(id_fichaje: str):
     for f in fichajes:
         if f.id_fichaje == id_fichaje:
             f.activo = False
-            return {"mensaje": "Cuenta bancaria archivada"}
+            return {"mensaje": "Fichaje archivado correctamente"}
 
-    return {"error": "Banco no encontrado"}
+    return {"error": "Fichaje no encontrado"}
