@@ -205,7 +205,7 @@ class ClienteOut(BaseModel):
     persona_contacto: str | None = None
     direccion: str | None = None
 
-    # para no romper tu frontend
+
     activo: bool = True
 
     if V2:
