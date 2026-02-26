@@ -12,7 +12,7 @@ raw_password = os.getenv("DB_PASSWORD")
 
 # --- COMPROBACIÓN DE SEGURIDAD ---
 if raw_password is None:
-    raise ValueError("❌ ERROR CRÍTICO: No se ha encontrado DB_PASSWORD. Python no está leyendo el archivo .env. Comprueba que está en la raíz de la carpeta 'back'.")
+    raise ValueError("ERROR CRÍTICO: No se ha encontrado DB_PASSWORD. Python no está leyendo el archivo .env. Comprueba que está en la raíz de la carpeta 'back'.")
 # ---------------------------------
 
 password = urllib.parse.quote_plus(raw_password)

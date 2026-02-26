@@ -44,9 +44,9 @@ def main():
 
         print("✅ Leido:", encontrado.id_cliente, encontrado.n_cliente, encontrado.cif)
 
-        db.delete(encontrado)
-        db.commit()
-        print(f"🧹 Borrado cliente de prueba: {id_cliente}")
+        #db.delete(encontrado)
+        #db.commit()
+        #print(f"🧹 Borrado cliente de prueba: {id_cliente}")
 
     except Exception as e:
         if db:

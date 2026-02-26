@@ -1,136 +1,74 @@
-import re
-from fastapi import APIRouter, Depends, HTTPException
+# back/app/routes/empleados.py
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from sqlalchemy import select
 
-# Importamos la conexión a la base de datos (Asegúrate de que get_db está en database.py)
 from app.database import get_db
-# Importamos el modelo real de la base de datos MySQL
-from app.models.empleado import Empleado 
+from app.models.empleado import Empleado
+from app.schemas.empleados import EmpleadoCreate, EmpleadoUpdate, EmpleadoOut
 
-# Creamos el router con el prefijo /api/empleados para que coincida con el Front
-router = APIRouter(
-    prefix="/api/empleados",
-    tags=["Empleados"]
-)
+router = APIRouter(prefix="/api/empleados", tags=["Empleados"])
 
-# ==========================================
-# 1. ESQUEMAS PYDANTIC (Para validar datos Front <-> Back)
-# ==========================================
-class EmpleadoCreate(BaseModel):
-    nombre: str
-    dni: str
-    codigo_fichaje: str
-    estado: str = "Activo"
-
-class EmpleadoResponse(BaseModel):
-    id: int
-    nombre: str
-    dni: str
-    codigo_fichaje: str
-    estado: str
-
-    class Config:
-        from_attributes = True # Permite a Pydantic leer modelos de SQLAlchemy
-
-# ==========================================
-# 2. FUNCIONES AUXILIARES
-# ==========================================
-def validar_dni(dni: str) -> bool:
-    """Valida que el DNI tenga 8 números y la letra correcta"""
-    patron = r'^\d{8}[A-Z]$'
-    if not re.match(patron, dni.upper()):
-        return False
-    letras = "TRWAGMYFPDXBNJZSQVHLCKE"
-    numero = int(dni[:-1])
-    return dni[-1].upper() == letras[numero % 23]
-
-
-# ==========================================
-# 3. RUTAS (ENDPOINTS) CONECTADAS A MYSQL
-# ==========================================
-
-# LISTAR EMPLEADOS (GET)
-@router.get("/", response_model=list[EmpleadoResponse], summary="Listado de empleados")
+@router.get("/", response_model=list[EmpleadoOut], summary="Listado de empleados")
 def listar_empleados(db: Session = Depends(get_db)):
-    # Hacemos una SELECT * FROM empleados en MySQL
-    empleados = db.query(Empleado).all()
-    return empleados
+    return db.execute(select(Empleado)).scalars().all()
 
+@router.post("/", response_model=EmpleadoOut, status_code=status.HTTP_201_CREATED, summary="Crear empleado")
+def crear_empleado(payload: EmpleadoCreate, db: Session = Depends(get_db)):
+    # DNI único
+    if db.execute(select(Empleado).where(Empleado.dni == payload.dni)).scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Ya existe un empleado con ese DNI/NIE")
 
-# CREAR EMPLEADO (POST)
-@router.post("/", response_model=EmpleadoResponse, summary="Crear empleado")
-def crear_empleado(empleado_in: EmpleadoCreate, db: Session = Depends(get_db)):
-    dni_limpio = empleado_in.dni.upper().strip()
+    # Código fichaje único
+    if db.execute(select(Empleado).where(Empleado.codigo_fichaje == payload.codigo_fichaje)).scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Ese código de fichaje ya está asignado")
 
-    # 1. Validar DNI real
-    if not validar_dni(dni_limpio):
-        raise HTTPException(
-            status_code=400,
-            detail="DNI no válido. Debe tener 8 números y la letra correcta."
-        )
-
-    # 2. Validar DNI único en la Base de Datos
-    if db.query(Empleado).filter(Empleado.dni == dni_limpio).first():
-        raise HTTPException(
-            status_code=400,
-            detail="Ya existe un empleado registrado con ese DNI."
-        )
-
-    # 3. Validar Código de Fichaje único
-    if db.query(Empleado).filter(Empleado.codigo_fichaje == empleado_in.codigo_fichaje.strip()).first():
-        raise HTTPException(
-            status_code=400,
-            detail="Ese código de fichaje ya está asignado a otro empleado."
-        )
-
-    # 4. Crear el registro en MySQL
-    nuevo_empleado = Empleado(
-        nombre=empleado_in.nombre.strip(),
-        dni=dni_limpio,
-        codigo_fichaje=empleado_in.codigo_fichaje.strip(),
-        estado=empleado_in.estado
+    nuevo = Empleado(
+        nombre=payload.nombre,
+        dni=payload.dni,
+        codigo_fichaje=payload.codigo_fichaje,
+        estado=payload.estado,
     )
+    db.add(nuevo)
+    db.commit()
+    db.refresh(nuevo)
+    return nuevo
 
-    db.add(nuevo_empleado)
-    db.commit() # Guardamos los cambios
-    db.refresh(nuevo_empleado) # Refrescamos para obtener el ID autogenerado
-
-    return nuevo_empleado
-
-
-# EDITAR EMPLEADO (PUT)
-@router.put("/{id_empleado}", response_model=EmpleadoResponse, summary="Editar empleado")
-def editar_empleado(id_empleado: int, empleado_in: EmpleadoCreate, db: Session = Depends(get_db)):
-    
-    # Buscamos al empleado en la BBDD por su ID
-    emp_db = db.query(Empleado).filter(Empleado.id == id_empleado).first()
-    
-    if not emp_db:
+@router.put("/{id_empleado}", response_model=EmpleadoOut, summary="Editar empleado")
+def editar_empleado(id_empleado: int, payload: EmpleadoUpdate, db: Session = Depends(get_db)):
+    emp = db.execute(select(Empleado).where(Empleado.id == id_empleado)).scalar_one_or_none()
+    if not emp:
         raise HTTPException(status_code=404, detail="Empleado no encontrado")
 
-    # Actualizamos los datos
-    emp_db.nombre = empleado_in.nombre.strip()
-    emp_db.dni = empleado_in.dni.upper().strip()
-    emp_db.codigo_fichaje = empleado_in.codigo_fichaje.strip()
-    emp_db.estado = empleado_in.estado
+    # Si cambia DNI, comprobar duplicado
+    if payload.dni and payload.dni != emp.dni:
+        dup = db.execute(select(Empleado).where(Empleado.dni == payload.dni)).scalar_one_or_none()
+        if dup:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Ese DNI/NIE ya pertenece a otro empleado")
+        emp.dni = payload.dni
+
+    # Si cambia código, comprobar duplicado
+    if payload.codigo_fichaje and payload.codigo_fichaje != emp.codigo_fichaje:
+        dup = db.execute(select(Empleado).where(Empleado.codigo_fichaje == payload.codigo_fichaje)).scalar_one_or_none()
+        if dup:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Ese código de fichaje ya pertenece a otro empleado")
+        emp.codigo_fichaje = payload.codigo_fichaje
+
+    if payload.nombre is not None:
+        emp.nombre = payload.nombre
+    if payload.estado is not None:
+        emp.estado = payload.estado
 
     db.commit()
-    db.refresh(emp_db)
-    
-    return emp_db
+    db.refresh(emp)
+    return emp
 
-
-# ARCHIVAR/ELIMINAR EMPLEADO (DELETE o PATCH)
-@router.delete("/{id_empleado}", summary="Archivar empleado (Soft Delete)")
+@router.patch("/{id_empleado}/archivar", summary="Archivar empleado (Inactivo)")
 def archivar_empleado(id_empleado: int, db: Session = Depends(get_db)):
-    emp_db = db.query(Empleado).filter(Empleado.id == id_empleado).first()
-    
-    if not emp_db:
+    emp = db.execute(select(Empleado).where(Empleado.id == id_empleado)).scalar_one_or_none()
+    if not emp:
         raise HTTPException(status_code=404, detail="Empleado no encontrado")
 
-    # En lugar de borrarlo físicamente, lo marcamos como inactivo (Soft delete)
-    emp_db.estado = "Inactivo"
+    emp.estado = "Inactivo"
     db.commit()
-
     return {"mensaje": "Empleado archivado correctamente"}
