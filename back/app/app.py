@@ -135,13 +135,16 @@ def confirm_horas():
 
         with engine.begin() as conn:
             conn.execute(
-                text("""
-                    INSERT INTO HORAS_TRAB
-                    (ID_SOCIEDAD, ID_EMPLEADO, FECHA, ID_CLIENTE, ID_PROYECTO, HORAS_DIA, DESC_TAREA)
-                    VALUES (:ID_SOCIEDAD, :ID_EMPLEADO, :FECHA, :ID_CLIENTE, :ID_PROYECTO, :HORAS_DIA, :DESC_TAREA)
-                """),
-                filas_validas
-            )
+            text("""
+                INSERT INTO HORAS_TRAB
+                (ID_SOCIEDAD, ID_EMPLEADO, FECHA, ID_CLIENTE, ID_PROYECTO, HORAS_DIA, DESC_TAREA)
+                VALUES (:ID_SOCIEDAD, :ID_EMPLEADO, :FECHA, :ID_CLIENTE, :ID_PROYECTO, :HORAS_DIA, :DESC_TAREA)
+                ON DUPLICATE KEY UPDATE
+                    HORAS_DIA = VALUES(HORAS_DIA),
+                    DESC_TAREA = VALUES(DESC_TAREA)
+            """),
+    filas_validas
+)
 
         session.pop('filas_validas', None)
 
