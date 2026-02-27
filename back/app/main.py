@@ -20,7 +20,7 @@ from app.routes.tarifas import router as tarifas_router
 
 # 1. CREACIÓN AUTOMÁTICA DE TABLAS EN MYSQL
 # Comentamos esto porque el usuario no tiene permisos CREATE
-# Base.metadata.create_all(bind=engine)  <-- PONLE LA ALMOHADILLA DELANTE
+# Base.metadata.create_all(bind=engine) <-- Poner # delante 
 
 # 2. INICIALIZACIÓN DE LA API CON METADATOS CORPORATIVOS
 app = FastAPI(
