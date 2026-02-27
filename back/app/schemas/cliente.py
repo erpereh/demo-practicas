@@ -1,7 +1,11 @@
-# app/schemas/cliente.py
+# Esquema Pydantic para la entidad CLIENTES:
+# define las estructuras de entrada/salida de la API,
+# normaliza textos y valida que los identificadores fiscales españoles
+# (CIF, NIF, NIE) tengan un formato y letra de control correctos.
 import re
 
-# Compatible con Pydantic v1 y v2
+# Importa Pydantic de forma compatible con v1 y v2:
+# intenta usar field_validator (v2) y, si no existe, cae a validator (v1).
 try:
     from pydantic import BaseModel, Field, field_validator
     V2 = True
@@ -9,21 +13,46 @@ except Exception:
     from pydantic import BaseModel, Field, validator
     V2 = False
 
-# --- Validación CIF/NIF/NIE (España) ---
+# Tabla de letras de control usadas en el cálculo del NIF/NIE (personas físicas).
 NIF_LETTERS = "TRWAGMYFPDXBNJZSQVHLCKE"
+
+# Tabla de letras de control usadas en el cálculo del CIF (personas jurídicas).
 CIF_CONTROL_LETTERS = "JABCDEFGHI"
 
+# Función auxiliar: limpia un texto:
+# - quita espacios al principio y al final
+# - colapsa espacios múltiples en uno solo
+# - devuelve None si el resultado queda vacío.
 def _clean_text(s: str | None) -> str | None:
     if s is None:
         return None
     s = " ".join(s.strip().split())
     return s if s else None
 
+# Función auxiliar: normaliza un identificador fiscal:
+# - lanza error si viene None
+# - elimina espacios, guiones y puntos
+# - lo convierte a mayúsculas para trabajar siempre con un formato homogéneo.
 def _clean_tax_id(value: str) -> str:
     if value is None:
         raise ValueError("CIF/NIF/NIE es obligatorio")
     return re.sub(r"[\s\-\.]", "", value).upper()
 
+
+# Valida un identificador fiscal español (CIF/NIF/NIE):
+# - Normaliza el valor con _clean_tax_id.
+# - Si encaja con patrón de NIF (8 dígitos + letra), calcula la letra esperada
+#   con NIF_LETTERS y comprueba que coincida.
+# - Si encaja con NIE (X/Y/Z + 7 dígitos + letra), convierte la letra inicial
+#   en un dígito, calcula la letra de control y la compara.
+# - Si encaja con CIF (letra + 7 dígitos + dígito/letra de control), aplica
+#   el algoritmo oficial:
+#   · suma posiciones pares e impares por separado,
+#   · obtiene el dígito de control,
+#   · determina si el control debe ser letra, dígito o cualquiera de los dos
+#     según la letra inicial del CIF,
+#   · valida que el carácter de control sea correcto.
+# - Si no cumple ninguno de los formatos anteriores, lanza ValueError.
 def validate_spanish_tax_id(value: str) -> str:
     v = _clean_tax_id(value)
 
@@ -73,7 +102,9 @@ def validate_spanish_tax_id(value: str) -> str:
 
     raise ValueError("Formato de CIF/NIF/NIE no válido")
 
-# --- Schemas ---
+# Modelo de entrada para CREAR clientes:
+# incluye todos los campos de la tabla CLIENTES y un flag 'activo' para el front.
+# Pone límites de longitud y deja contacto/dirección como opcionales.
 class ClienteCreate(BaseModel):
     id_sociedad: str = Field(..., min_length=1, max_length=5)
     id_cliente: str = Field(..., min_length=2, max_length=20)
@@ -86,6 +117,10 @@ class ClienteCreate(BaseModel):
     activo: bool = True
 
     if V2:
+
+        # Modelo de entrada para CREAR clientes:
+        # incluye todos los campos de la tabla CLIENTES y un flag 'activo' para el front.
+        # Pone límites de longitud y deja contacto/dirección como opcionales.
         @field_validator("id_sociedad")
         @classmethod
         def val_sociedad(cls, v: str) -> str:
@@ -94,6 +129,11 @@ class ClienteCreate(BaseModel):
                 raise ValueError("ID_SOCIEDAD: solo letras/números, sin espacios")
             return v
 
+
+        # Validador de id_cliente (ClienteCreate):
+        # - limpia el texto, lo pasa a mayúsculas
+        # - permite letras, números y guiones bajos, sin espacios (regex [A-Z0-9_]{2,20})
+        # - fuerza una longitud entre 2 y 20 caracteres.
         @field_validator("id_cliente")
         @classmethod
         def val_id_cliente(cls, v: str) -> str:
@@ -102,6 +142,10 @@ class ClienteCreate(BaseModel):
                 raise ValueError("ID_CLIENTE: alfanumérico (y _), 2-20 caracteres, sin espacios")
             return v
 
+
+        # Validador de n_cliente (ClienteCreate):
+        # - limpia espacios sobrantes
+        # - comprueba que el nombre comercial tenga al menos 2 caracteres reales.
         @field_validator("n_cliente")
         @classmethod
         def val_nombre(cls, v: str) -> str:
@@ -110,11 +154,19 @@ class ClienteCreate(BaseModel):
                 raise ValueError("N_CLIENTE demasiado corto")
             return v
 
+
+        # Validador de n_cliente (ClienteCreate):
+        # - limpia espacios sobrantes
+        # - comprueba que el nombre comercial tenga al menos 2 caracteres reales.
         @field_validator("cif")
         @classmethod
         def val_cif(cls, v: str) -> str:
             return validate_spanish_tax_id(v)
 
+
+        # Validador de persona_contacto y direccion (ClienteCreate):
+        # - aplica _clean_text para eliminar espacios basura
+        # - convierte cadenas en blanco en None, para no guardar "vacío" en la BBDD.
         @field_validator("persona_contacto", "direccion")
         @classmethod
         def val_text(cls, v: str | None) -> str | None:
@@ -149,6 +201,10 @@ class ClienteCreate(BaseModel):
         def val_text(cls, v: str | None) -> str | None:
             return _clean_text(v)
 
+
+# Modelo de entrada para ACTUALIZAR clientes:
+# todos los campos son opcionales, porque en un PUT de edición
+# sólo se envían los datos que se quieren modificar.
 class ClienteUpdate(BaseModel):
     n_cliente: str | None = Field(default=None, min_length=2, max_length=255)
     cif: str | None = Field(default=None, min_length=8, max_length=20)
@@ -156,6 +212,10 @@ class ClienteUpdate(BaseModel):
     direccion: str | None = Field(default=None, max_length=1000)
 
     if V2:
+
+        # Modelo de entrada para ACTUALIZAR clientes:
+        # todos los campos son opcionales, porque en un PUT de edición
+        # sólo se envían los datos que se quieren modificar.
         @field_validator("n_cliente")
         @classmethod
         def val_nombre(cls, v: str | None) -> str | None:
@@ -166,6 +226,10 @@ class ClienteUpdate(BaseModel):
                 raise ValueError("N_CLIENTE demasiado corto")
             return v2
 
+
+        # Validador de n_cliente (ClienteUpdate):
+        # - si viene None, se deja tal cual (no se modifica ese campo)
+        # - si viene texto, se limpia y se exige longitud mínima de 2 caracteres.
         @field_validator("cif")
         @classmethod
         def val_cif(cls, v: str | None) -> str | None:
@@ -173,6 +237,9 @@ class ClienteUpdate(BaseModel):
                 return None
             return validate_spanish_tax_id(v)
 
+        # Validador de persona_contacto y direccion (ClienteUpdate):
+        # - normaliza textos opcionales con _clean_text, convirtiendo
+        #   cadenas vacías en None.
         @field_validator("persona_contacto", "direccion")
         @classmethod
         def val_text(cls, v: str | None) -> str | None:
@@ -197,6 +264,17 @@ class ClienteUpdate(BaseModel):
         def val_text(cls, v: str | None) -> str | None:
             return _clean_text(v)
 
+
+# Modelo de salida ClienteOut:
+# define exactamente los campos que el backend devuelve al frontend
+# cuando se listan o se consultan clientes (incluye el flag 'activo' para la UI).
+
+# Configuración de ClienteOut para Pydantic v2:
+# permite construir el schema directamente a partir de objetos ORM (SQLAlchemy)
+# usando la opción from_attributes.
+
+# Configuración alternativa para Pydantic v1:
+# activa orm_mode para poder crear ClienteOut desde instancias de modelo ORM.
 class ClienteOut(BaseModel):
     id_sociedad: str
     id_cliente: str

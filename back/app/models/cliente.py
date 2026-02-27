@@ -1,8 +1,12 @@
+# Modelo ORM de la entidad CLIENTES:
+# Representa la tabla CLIENTES de la base de datos y permite trabajar
+# con clientes como objetos Python usando SQLAlchemy dentro de FastAPI.
+
 from sqlalchemy import Column, String, Text, Index
 from app.database import Base
 
 class Cliente(Base):
-    __tablename__ = "CLIENTES"  # importante: mismo nombre que en MySQL
+    __tablename__ = "CLIENTES"  
 
     id_sociedad = Column("ID_SOCIEDAD", String(5), nullable=False, index=True)
     id_cliente = Column("ID_CLIENTE", String(20), primary_key=True, index=True)
