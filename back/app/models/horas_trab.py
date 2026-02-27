@@ -1,14 +1,16 @@
-from datetime import datetime
+from sqlalchemy import Column, Integer, String, Float, Date
+from app.database import Base
 
-class HorasTrab:
-    def __init__(self, id_fichaje, fecha, id_empleado, id_proyecto, hora_inicio, hora_fin, horas_total, origen, estado, activo=True):
-        self.id_fichaje = id_fichaje
-        self.fecha = datetime.strptime(fecha, "%Y-%m-%d").date()
-        self.id_empleado = id_empleado
-        self.id_proyecto = id_proyecto
-        self.hora_inicio = hora_inicio
-        self.hora_fin = hora_fin
-        self.horas_total = hora_fin - hora_inicio
-        self.origen = origen
-        self.estado = estado
-        self.activo = activo
+class HorasTrab(Base):
+    __tablename__ = "horas_trab"
+
+    id = Column(Integer, primary_key=True, index=True)
+    id_sociedad = Column(String(50), nullable=True)
+    id_empleado = Column(String(50), index=True, nullable=False)
+    fecha = Column(Date, nullable=False)
+    id_cliente = Column(String(50), nullable=True)
+    id_proyecto = Column(String(50), index=True, nullable=True)
+    horas_dia = Column(Float, nullable=False)
+    desc_tarea = Column(String(255), nullable=True)
+    origen = Column(String(50), default="MANUAL")
+    estado = Column(String(50), default="PENDIENTE")

@@ -1,10 +1,18 @@
-class Proyecto:
-    def __init__(self,id_sociedad,id_cliente,id_proyecto,codigo_proyecto_tracker,tipo_pago,precio,fec_inicio,activo=True):
-        self.id_sociedad = id_sociedad
-        self.id_cliente = id_cliente
-        self.id_proyecto = id_proyecto
-        self.codigo_proyecto_tracker = codigo_proyecto_tracker
-        self.tipo_pago = tipo_pago
-        self.precio = precio
-        self.fec_inicio = fec_inicio
-        self.activo = activo
+# app/models/proyecto.py
+from sqlalchemy import Column, String, Numeric, Date
+from app.database import Base
+
+class Proyecto(Base):
+
+    __tablename__ = "PROYECTOS"
+
+    id_sociedad = Column("ID_SOCIEDAD", String(10), index = True)
+    id_proyecto = Column("ID_PROYECTO", String(50), nullable = False, primary_key = True)
+    id_cliente = Column("ID_CLIENTE", String(50), index = True)
+
+    nombre_proyecto = Column("NOMBRE_PROYECTO", String(255), nullable=False)
+    codigo_proyecto_tracker = Column("CODIGO_PROYECTO_TRACKER", String(100))
+
+    tipo_pago = Column("TIPO_PAGO", String(50))
+    precio = Column("PRECIO", Numeric(15, 2), default = 0.00)
+    fec_inicio = Column("FEC_INICIO", Date)

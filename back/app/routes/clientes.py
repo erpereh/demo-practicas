@@ -1,90 +1,98 @@
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from sqlalchemy import select
+
+from app.database import get_db
 from app.models.cliente import Cliente
+from app.schemas.cliente import ClienteCreate, ClienteUpdate, ClienteOut
 
-router = APIRouter()
+router = APIRouter(prefix="/api/clientes", tags=["Clientes"])
 
-clientes = [
-    Cliente("01", "CYC", "CYC IT SOLUTIONS", "A12345678", "Juan Pérez", "Madrid", True),
-    Cliente("01", "ATOS", "ATOS IT SOLUTIONS S.L.", "A85908093", "Andrés Izquierdo", "Ronda de Europa 5", True),
-]
+@router.get("/", response_model=list[ClienteOut])
+def listar_clientes(db: Session = Depends(get_db)):
+    return db.execute(select(Cliente)).scalars().all()
 
+@router.post("/", response_model=ClienteOut, status_code=status.HTTP_201_CREATED)
+def crear_cliente(payload: ClienteCreate, db: Session = Depends(get_db)):
+    # 1) PK: id_cliente
+    existe = db.execute(
+        select(Cliente).where(Cliente.id_cliente == payload.id_cliente)
+    ).scalar_one_or_none()
+    if existe:
+        raise HTTPException(status_code=409, detail="Ya existe un cliente con ese ID_CLIENTE")
 
-# LISTAR CLIENTES
-@router.get("/clientes")
-def listar_clientes():
-    return [
-        {
-            "id_cliente": c.id_cliente,
-            "nombre": c.n_cliente,
-            "cif": c.cif,
-            "contacto": c.persona_contacto,
-            "direccion": c.direccion,
-            "activo": c.activo
-        }
-        for c in clientes
-    ]
-
-
-# CREAR CLIENTE
-@router.post("/clientes")
-def crear_cliente(
-    id_sociedad: str = Body(...),
-    id_cliente: str = Body(...),
-    n_cliente: str = Body(...),
-    cif: str = Body(...),
-    persona_contacto: str = Body(...),
-    direccion: str = Body(...)
-):
-    if any(c.id_cliente == id_cliente for c in clientes):
-        return {"error": "Ya existe un cliente con ese código"}
+    # 2) Evitar duplicar CIF en la misma sociedad (muy típico)
+    dup = db.execute(
+        select(Cliente).where(
+            Cliente.id_sociedad == payload.id_sociedad,
+            Cliente.cif == payload.cif
+        )
+    ).scalar_one_or_none()
+    if dup:
+        raise HTTPException(status_code=409, detail="Ya existe un cliente con ese CIF en esa sociedad")
 
     nuevo = Cliente(
-        id_sociedad,
-        id_cliente,
-        n_cliente,
-        cif,
-        persona_contacto,
-        direccion,
-        True
+        id_sociedad=payload.id_sociedad,
+        id_cliente=payload.id_cliente,
+        n_cliente=payload.n_cliente,
+        cif=payload.cif,
+        persona_contacto=payload.persona_contacto,
+        direccion=payload.direccion,
     )
+    db.add(nuevo)
+    db.commit()
+    db.refresh(nuevo)
+    return nuevo
 
-    clientes.append(nuevo)
+@router.put("/{id_cliente}", response_model=ClienteOut)
+def editar_cliente(id_cliente: str, payload: ClienteUpdate, db: Session = Depends(get_db)):
+    id_cliente = id_cliente.upper()
 
-    return {"mensaje": "Cliente creado correctamente"}
+    cliente = db.execute(
+        select(Cliente).where(Cliente.id_cliente == id_cliente)
+    ).scalar_one_or_none()
 
+    if not cliente:
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
+    # Si cambia CIF, comprobar duplicado en esa sociedad
+    if payload.cif and payload.cif != cliente.cif:
+        dup = db.execute(
+            select(Cliente).where(
+                Cliente.id_sociedad == cliente.id_sociedad,
+                Cliente.cif == payload.cif
+            )
+        ).scalar_one_or_none()
+        if dup:
+            raise HTTPException(status_code=409, detail="Ese CIF ya existe en esa sociedad")
+        cliente.cif = payload.cif
 
-# EDITAR CLIENTE
-@router.put("/clientes/{id_cliente}")
-def editar_cliente(
-    id_cliente: str,
-    n_cliente: str = Body(None),
-    cif: str = Body(None),
-    persona_contacto: str = Body(None),
-    direccion: str = Body(None)
-):
-    for c in clientes:
-        if c.id_cliente == id_cliente:
-            if n_cliente:
-                c.n_cliente = n_cliente
-            if cif:
-                c.cif = cif
-            if persona_contacto:
-                c.persona_contacto = persona_contacto
-            if direccion:
-                c.direccion = direccion
+    if payload.n_cliente is not None:
+        cliente.n_cliente = payload.n_cliente
+    if payload.persona_contacto is not None:
+        cliente.persona_contacto = payload.persona_contacto
+    if payload.direccion is not None:
+        cliente.direccion = payload.direccion
 
-            return {"mensaje": "Cliente actualizado"}
+    db.commit()
+    db.refresh(cliente)
+    return cliente
 
-    return {"error": "Cliente no encontrado"}
+@router.patch("/{id_cliente}/archivar")
+def archivar_cliente(id_cliente: str, db: Session = Depends(get_db)):
+    """
+    Como la tabla NO tiene 'estado' ni 'activo', archivar = eliminar registro.
+    (si algún día te dejan añadir columna, lo cambiamos a soft delete)
+    """
+    id_cliente = id_cliente.upper()
 
+    cliente = db.execute(
+        select(Cliente).where(Cliente.id_cliente == id_cliente)
+    ).scalar_one_or_none()
 
-# ARCHIVAR CLIENTE
-@router.patch("/clientes/{id_cliente}/archivar")
-def archivar_cliente(id_cliente: str):
-    for c in clientes:
-        if c.id_cliente == id_cliente:
-            c.activo = False
-            return {"mensaje": "Cliente archivado"}
+    if not cliente:
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
-    return {"error": "Cliente no encontrado"}
+    db.delete(cliente)
+    db.commit()
+    return {"mensaje": "Cliente archivado (eliminado) correctamente"}

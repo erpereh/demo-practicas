@@ -1,134 +1,76 @@
-from fastapi import APIRouter, Query, Body
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from sqlalchemy import select
+
+from app.database import get_db
 from app.models.empleado import Empleado
-from app.models.horas_trab import HorasTrab
+from app.schemas.empleados import EmpleadoCreate, EmpleadoUpdate, EmpleadoOut
 
-router = APIRouter()
+router = APIRouter(prefix="/api/empleados", tags=["Empleados"])
 
-empleados = [
-    Empleado("02906525S", None, "ALBA", "GARZO SOTO", None, "2022-05-05", True),
-    Empleado("12345678A", "TRK001", "CARLOS", "PEREZ LOPEZ", None, "2023-01-10", True),
-    Empleado("98765432B", "TRK002", "LAURA", "MARTIN RUIZ", None, "2021-06-15", True),
-]
+@router.get("/", response_model=list[EmpleadoOut])
+def listar_empleados(db: Session = Depends(get_db)):
+    return db.execute(select(Empleado)).scalars().all()
 
-horas_registradas = [
-    HorasTrab("01", "02906525S", "2026-01-26", "CYC", "SOP_META4", 5.22, "Implantación"),
-    HorasTrab("01", "02906525S", "2026-01-27", "CYC", "SOP_META4", 3.50, "Consultoría"),
+@router.post("/", response_model=EmpleadoOut, status_code=status.HTTP_201_CREATED)
+def crear_empleado(payload: EmpleadoCreate, db: Session = Depends(get_db)):
+    # PK duplicada
+    existe = db.execute(select(Empleado).where(Empleado.id_empleado == payload.id_empleado)).scalar_one_or_none()
+    if existe:
+        raise HTTPException(status_code=409, detail="Ya existe un empleado con ese ID_EMPLEADO")
 
-    HorasTrab("01", "02906525S", "2026-02-03", "CYC", "SOP_META4", 4.00, "Reunión"),
-    HorasTrab("01", "02906525S", "2026-02-15", "CYC", "SOP_META4", 6.00, "Análisis"),
-
-    HorasTrab("01", "02906525S", "2025-01-10", "CYC", "SOP_META4", 7.00, "Testing"),
-
-    HorasTrab("01", "12345678A", "2026-01-05", "ATOS", "PROY001", 8.00, "Soporte técnico"),
-]
-
-
-
-# LISTADO EMPLEADOS
-@router.get("/empleados")
-def listar_empleados():
-    return [
-        {
-            "dni": emp.id_empleado,
-            "tracker": emp.id_empleado_tracker,
-            "nombre": emp.nombre,
-            "apellidos": emp.apellidos,
-            "activo": emp.activo
-        }
-        for emp in empleados
-    ]
-
-
-# CREAR EMPLEADO
-@router.post("/empleados")
-def crear_empleado(
-    id_empleado: str = Body(...),
-    id_empleado_tracker: str = Body(None),
-    nombre: str = Body(...),
-    apellidos: str = Body(...),
-    matricula: str = Body(None),
-    fec_alta: str = Body(...)
-):
-    # Validar DNI único
-    if any(emp.id_empleado == id_empleado for emp in empleados):
-        return {"error": "Ya existe un empleado con ese DNI"}
+    # Tracker duplicado (recomendable)
+    dup_tracker = db.execute(
+        select(Empleado).where(Empleado.id_empleado_tracker == payload.id_empleado_tracker)
+    ).scalar_one_or_none()
+    if dup_tracker:
+        raise HTTPException(status_code=409, detail="Ese ID_EMPLEADO_TRACKER ya está asignado")
 
     nuevo = Empleado(
-        id_empleado,
-        id_empleado_tracker,
-        nombre,
-        apellidos,
-        matricula,
-        fec_alta,
-        True
+        id_empleado=payload.id_empleado,
+        id_empleado_tracker=payload.id_empleado_tracker,
+        nombre=payload.nombre,
+        apellidos=payload.apellidos,
+        matricula=payload.matricula,
     )
+    db.add(nuevo)
+    db.commit()
+    db.refresh(nuevo)
+    return nuevo
 
-    empleados.append(nuevo)
+@router.put("/{id_empleado}", response_model=EmpleadoOut)
+def editar_empleado(id_empleado: str, payload: EmpleadoUpdate, db: Session = Depends(get_db)):
+    id_empleado = id_empleado.upper().strip()
 
-    return {"mensaje": "Empleado creado correctamente"}
+    emp = db.execute(select(Empleado).where(Empleado.id_empleado == id_empleado)).scalar_one_or_none()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Empleado no encontrado")
 
+    if payload.id_empleado_tracker is not None and payload.id_empleado_tracker != emp.id_empleado_tracker:
+        dup = db.execute(select(Empleado).where(Empleado.id_empleado_tracker == payload.id_empleado_tracker)).scalar_one_or_none()
+        if dup:
+            raise HTTPException(status_code=409, detail="Ese ID_EMPLEADO_TRACKER ya pertenece a otro empleado")
+        emp.id_empleado_tracker = payload.id_empleado_tracker
 
+    if payload.nombre is not None:
+        emp.nombre = payload.nombre
+    if payload.apellidos is not None:
+        emp.apellidos = payload.apellidos
+    if payload.matricula is not None:
+        emp.matricula = payload.matricula
 
-# EDITAR EMPLEADO
-@router.put("/empleados/{dni}")
-def editar_empleado(
-    dni: str,
-    nombre: str = Body(None),
-    apellidos: str = Body(None),
-    matricula: str = Body(None)
-):
-    for emp in empleados:
-        if emp.id_empleado == dni:
-            if nombre:
-                emp.nombre = nombre
-            if apellidos:
-                emp.apellidos = apellidos
-            if matricula:
-                emp.matricula = matricula
+    db.commit()
+    db.refresh(emp)
+    return emp
 
-            return {"mensaje": "Empleado actualizado"}
+@router.patch("/{id_empleado}/archivar")
+def archivar_empleado(id_empleado: str, db: Session = Depends(get_db)):
+    id_empleado = id_empleado.upper().strip()
 
-    return {"error": "Empleado no encontrado"}
+    emp = db.execute(select(Empleado).where(Empleado.id_empleado == id_empleado)).scalar_one_or_none()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Empleado no encontrado")
 
-
-# ARCHIVAR EMPLEADO
-@router.patch("/empleados/{dni}/archivar")
-def archivar_empleado(dni: str):
-    for emp in empleados:
-        if emp.id_empleado == dni:
-            emp.activo = False
-            return {"mensaje": "Empleado archivado"}
-
-    return {"error": "Empleado no encontrado"}
-
-
-
-# HORAS POR MES
-@router.get("/horas/{nombre}")
-def total_horas_por_nombre(
-    nombre: str,
-    anio: int = Query(..., ge=2000, le=2100),
-    mes: int = Query(..., ge=1, le=12)
-):
-    empleado_encontrado = next(
-        (emp for emp in empleados if emp.nombre.lower() == nombre.lower()),
-        None
-    )
-
-    if not empleado_encontrado:
-        return {"error": "Empleado no encontrado"}
-
-    total = sum(
-        registro.horas_dia
-        for registro in horas_registradas
-        if registro.id_empleado == empleado_encontrado.id_empleado
-        and registro.fecha.year == anio
-        and registro.fecha.month == mes
-    )
-
-    return {
-        "empleado": f"{empleado_encontrado.nombre} {empleado_encontrado.apellidos}",
-        "anio": anio,
-        "mes": mes,
-        "total_horas": round(total, 2)
-    }
+    db.delete(emp)
+    db.commit()
+    return {"mensaje": "Empleado archivado (eliminado) correctamente"}

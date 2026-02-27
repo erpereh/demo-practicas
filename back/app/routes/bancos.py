@@ -1,84 +1,95 @@
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from sqlalchemy import select
+
+from app.database import get_db
 from app.models.banco import Banco
+from app.schemas.banco import BancoCreate, BancoUpdate, BancoOut
 
-router = APIRouter()
+router = APIRouter(prefix="/api/bancos", tags=["Bancos"])
 
-# DATOS EN MEMORIA
-bancos = [
-    Banco("01", "001", "Banco Bilbao Vizcaya Argentaria", "0201582733", "ES8601822737190201582733", True),
-    Banco("01", "002", "Banco Santander", "1234567890", "ES1123456789012345678901", True),
-]
+@router.get("/", response_model=list[BancoOut])
+def listar_bancos(db: Session = Depends(get_db)):
+    return db.execute(select(Banco)).scalars().all()
 
+@router.post("/", response_model=BancoOut, status_code=status.HTTP_201_CREATED)
+def crear_banco(payload: BancoCreate, db: Session = Depends(get_db)):
+    # PK duplicada
+    existe = db.execute(
+        select(Banco).where(Banco.id_banco_cobro == payload.id_banco_cobro)
+    ).scalar_one_or_none()
+    if existe:
+        raise HTTPException(status_code=409, detail="Ya existe un banco con ese ID_BANCO_COBRO")
 
-# LISTAR BANCOS
-@router.get("/bancos")
-def listar_bancos():
-    return [
-        {
-            "id_banco": b.id_banco_cobro,
-            "nombre": b.n_banco_cobro,
-            "num_cuenta": b.num_cuenta,
-            "iban": b.codigo_iban,
-            "activo": b.activo
-        }
-        for b in bancos
-    ]
-
-
-# CREAR BANCO
-@router.post("/bancos")
-def crear_banco(
-    id_sociedad: str = Body(...),
-    id_banco_cobro: str = Body(...),
-    n_banco_cobro: str = Body(...),
-    num_cuenta: str = Body(...),
-    codigo_iban: str = Body(...)
-):
-    if any(b.id_banco_cobro == id_banco_cobro for b in bancos):
-        return {"error": "Ya existe un banco con ese código"}
+    # Evitar duplicar IBAN dentro de la misma sociedad (si viene informado)
+    if payload.codigo_iban:
+        dup = db.execute(
+            select(Banco).where(
+                Banco.id_sociedad == payload.id_sociedad,
+                Banco.codigo_iban == payload.codigo_iban
+            )
+        ).scalar_one_or_none()
+        if dup:
+            raise HTTPException(status_code=409, detail="Ya existe una cuenta con ese IBAN en esa sociedad")
 
     nuevo = Banco(
-        id_sociedad,
-        id_banco_cobro,
-        n_banco_cobro,
-        num_cuenta,
-        codigo_iban,
-        True
+        id_sociedad=payload.id_sociedad,
+        id_banco_cobro=payload.id_banco_cobro,
+        n_banco_cobro=payload.n_banco_cobro,
+        num_cuenta=payload.num_cuenta,
+        codigo_iban=payload.codigo_iban,
     )
+    db.add(nuevo)
+    db.commit()
+    db.refresh(nuevo)
+    return nuevo
 
-    bancos.append(nuevo)
+@router.put("/{id_banco_cobro}", response_model=BancoOut)
+def editar_banco(id_banco_cobro: str, payload: BancoUpdate, db: Session = Depends(get_db)):
+    id_banco_cobro = id_banco_cobro.upper().strip()
 
-    return {"mensaje": "Cuenta bancaria creada correctamente"}
+    banco = db.execute(
+        select(Banco).where(Banco.id_banco_cobro == id_banco_cobro)
+    ).scalar_one_or_none()
 
+    if not banco:
+        raise HTTPException(status_code=404, detail="Cuenta bancaria no encontrada")
 
-# EDITAR BANCO
-@router.put("/bancos/{id_banco}")
-def editar_banco(
-    id_banco: str,
-    n_banco_cobro: str = Body(None),
-    num_cuenta: str = Body(None),
-    codigo_iban: str = Body(None)
-):
-    for b in bancos:
-        if b.id_banco_cobro == id_banco:
-            if n_banco_cobro:
-                b.n_banco_cobro = n_banco_cobro
-            if num_cuenta:
-                b.num_cuenta = num_cuenta
-            if codigo_iban:
-                b.codigo_iban = codigo_iban
+    if payload.codigo_iban is not None and payload.codigo_iban != banco.codigo_iban:
+        if payload.codigo_iban:
+            dup = db.execute(
+                select(Banco).where(
+                    Banco.id_sociedad == banco.id_sociedad,
+                    Banco.codigo_iban == payload.codigo_iban
+                )
+            ).scalar_one_or_none()
+            if dup:
+                raise HTTPException(status_code=409, detail="Ese IBAN ya existe en esa sociedad")
+        banco.codigo_iban = payload.codigo_iban
 
-            return {"mensaje": "Cuenta bancaria actualizada"}
+    if payload.n_banco_cobro is not None:
+        banco.n_banco_cobro = payload.n_banco_cobro
+    if payload.num_cuenta is not None:
+        banco.num_cuenta = payload.num_cuenta
 
-    return {"error": "Banco no encontrado"}
+    db.commit()
+    db.refresh(banco)
+    return banco
 
+@router.patch("/{id_banco_cobro}/archivar")
+def archivar_banco(id_banco_cobro: str, db: Session = Depends(get_db)):
+    """
+    La tabla BANCOS no tiene ESTADO: archivar = eliminar registro.
+    """
+    id_banco_cobro = id_banco_cobro.upper().strip()
 
-# ARCHIVAR BANCO
-@router.patch("/bancos/{id_banco}/archivar")
-def archivar_banco(id_banco: str):
-    for b in bancos:
-        if b.id_banco_cobro == id_banco:
-            b.activo = False
-            return {"mensaje": "Cuenta bancaria archivada"}
+    banco = db.execute(
+        select(Banco).where(Banco.id_banco_cobro == id_banco_cobro)
+    ).scalar_one_or_none()
 
-    return {"error": "Banco no encontrado"}
+    if not banco:
+        raise HTTPException(status_code=404, detail="Cuenta bancaria no encontrada")
+
+    db.delete(banco)
+    db.commit()
+    return {"mensaje": "Cuenta bancaria archivada (eliminada) correctamente"}
