@@ -1,6 +1,15 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Search, Plus, Trash2, X, Users, Loader2, AlertCircle } from "lucide-react";
+import {
+  Search,
+  Plus,
+  Trash2,
+  X,
+  Users,
+  Loader2,
+  AlertCircle,
+  Edit,
+} from "lucide-react";
 
 type EmpleadoAPI = {
   id_empleado: string;
@@ -13,7 +22,8 @@ type EmpleadoAPI = {
 const parseFastApiError = async (res: Response) => {
   try {
     const data = await res.json();
-    if (Array.isArray(data.detail)) return data.detail.map((d: any) => d.msg).join(" | ");
+    if (Array.isArray(data.detail))
+      return data.detail.map((d: any) => d.msg).join(" | ");
     return data.detail || `Error ${res.status}`;
   } catch {
     return `Error ${res.status}`;
@@ -37,7 +47,9 @@ export default function EmpleadosPage() {
   const [apellidos, setApellidos] = useState("");
   const [matricula, setMatricula] = useState("");
 
-  const [errores, setErrores] = useState<{
+  // errores
+  const [erroresGlobal, setErroresGlobal] = useState<{ general?: string }>({});
+  const [erroresModal, setErroresModal] = useState<{
     id_empleado?: string;
     tracker?: string;
     nombre?: string;
@@ -45,18 +57,24 @@ export default function EmpleadosPage() {
     general?: string;
   }>({});
 
+  // modo edición
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const esEdicion = editandoId !== null;
+
   const cargarEmpleados = async () => {
     try {
       setIsLoading(true);
-      setErrores({});
+      setErroresGlobal({});
       const res = await fetch(`${API_URL}/api/empleados/`);
       if (!res.ok) {
-        setErrores({ general: await parseFastApiError(res) });
+        setErroresGlobal({ general: await parseFastApiError(res) });
         return;
       }
       setEmpleados(await res.json());
     } catch (e) {
-      setErrores({ general: "No se pudo conectar con el servidor (¿backend encendido?)." });
+      setErroresGlobal({
+        general: "No se pudo conectar con el servidor (¿backend encendido?).",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -75,9 +93,34 @@ export default function EmpleadosPage() {
     );
   });
 
+  // ---------- MODAL HELPERS ----------
+
+  const abrirModalNuevo = () => {
+    setEditandoId(null);
+    setErroresModal({});
+    setIdEmpleado("");
+    setTracker("");
+    setNombre("");
+    setApellidos("");
+    setMatricula("");
+    setIsModalOpen(true);
+  };
+
+  const abrirModalEditar = (emp: EmpleadoAPI) => {
+    setEditandoId(emp.id_empleado);
+    setErroresModal({});
+    setIdEmpleado(emp.id_empleado);
+    setTracker(emp.id_empleado_tracker);
+    setNombre(emp.nombre);
+    setApellidos(emp.apellidos);
+    setMatricula(emp.matricula || "");
+    setIsModalOpen(true);
+  };
+
   const cerrarModal = () => {
     setIsModalOpen(false);
-    setErrores({});
+    setErroresModal({});
+    setEditandoId(null);
     setIdEmpleado("");
     setTracker("");
     setNombre("");
@@ -85,56 +128,89 @@ export default function EmpleadosPage() {
     setMatricula("");
   };
 
+  // ---------- GUARDAR (CREAR / EDITAR) ----------
+
   const handleGuardarEmpleado = async () => {
     const nuevos: any = {};
-    if (!idEmpleado.trim()) nuevos.id_empleado = "El ID (DNI/NIE) es obligatorio.";
+    if (!idEmpleado.trim())
+      nuevos.id_empleado = "El ID (DNI/NIE) es obligatorio.";
     if (!tracker.trim()) nuevos.tracker = "El tracker es obligatorio.";
     if (!nombre.trim()) nuevos.nombre = "El nombre es obligatorio.";
     if (!apellidos.trim()) nuevos.apellidos = "Los apellidos son obligatorios.";
 
     if (Object.keys(nuevos).length) {
-      setErrores(nuevos);
+      setErroresModal(nuevos);
       return;
     }
 
     try {
       setIsSaving(true);
-      setErrores({});
+      setErroresModal({});
 
-      const payload = {
-        id_empleado: idEmpleado,
-        id_empleado_tracker: tracker,
-        nombre,
-        apellidos,
-        matricula: matricula.trim() || null,
-      };
+      if (!esEdicion) {
+        // CREAR
+        const payload = {
+          id_empleado: idEmpleado,
+          id_empleado_tracker: tracker,
+          nombre,
+          apellidos,
+          matricula: matricula.trim() || null,
+        };
 
-      const res = await fetch(`${API_URL}/api/empleados/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+        const res = await fetch(`${API_URL}/api/empleados/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
 
-      if (!res.ok) {
-        setErrores({ general: await parseFastApiError(res) });
-        return;
+        if (!res.ok) {
+          setErroresModal({ general: await parseFastApiError(res) });
+          return;
+        }
+      } else if (editandoId) {
+        // EDITAR
+        const payloadUpdate = {
+          id_empleado_tracker: tracker,
+          nombre,
+          apellidos,
+          matricula: matricula.trim() || null,
+        };
+
+        const res = await fetch(
+          `${API_URL}/api/empleados/${encodeURIComponent(editandoId)}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payloadUpdate),
+          }
+        );
+
+        if (!res.ok) {
+          setErroresModal({ general: await parseFastApiError(res) });
+          return;
+        }
       }
 
       cerrarModal();
       await cargarEmpleados();
     } catch {
-      setErrores({ general: "No se pudo conectar con el servidor." });
+      setErroresModal({ general: "No se pudo conectar con el servidor." });
     } finally {
       setIsSaving(false);
     }
   };
 
+  // ---------- ARCHIVAR (BORRAR) ----------
+
   const handleArchivar = async (id_empleado: string) => {
     if (!confirm(`¿Archivar (eliminar) el empleado ${id_empleado}?`)) return;
 
-    const res = await fetch(`${API_URL}/api/empleados/${encodeURIComponent(id_empleado)}/archivar`, {
-      method: "PATCH",
-    });
+    const res = await fetch(
+      `${API_URL}/api/empleados/${encodeURIComponent(id_empleado)}/archivar`,
+      {
+        method: "PATCH",
+      }
+    );
 
     if (!res.ok) {
       alert(await parseFastApiError(res));
@@ -143,35 +219,49 @@ export default function EmpleadosPage() {
     await cargarEmpleados();
   };
 
+  // ---------- RENDER ----------
+
   return (
     <div className="p-10 max-w-7xl mx-auto relative">
       {/* CABECERA */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-quality-dark tracking-tight">Empleados</h1>
-          <p className="text-gray-500 mt-1">Gestiona la plantilla y los códigos de enlace para fichajes.</p>
+          <h1 className="text-3xl font-bold text-quality-dark tracking-tight">
+            Empleados
+          </h1>
+          <p className="text-gray-500 mt-1">
+            Gestiona la plantilla y los códigos de enlace para fichajes.
+          </p>
         </div>
 
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={abrirModalNuevo}
           className="bg-quality-red hover:bg-[#C20017] text-white px-5 py-2.5 rounded-lg font-medium transition-all shadow-md flex items-center gap-2"
         >
           <Plus size={18} /> Nuevo Empleado
         </button>
       </div>
 
-      {/* ERROR GENERAL */}
-      {errores.general && (
+      {/* ERROR GENERAL DE LISTADO */}
+      {erroresGlobal.general && (
         <div className="bg-red-50 border-l-4 border-quality-red p-3 rounded-r-md flex items-start gap-3 mb-4">
-          <AlertCircle className="text-quality-red shrink-0 mt-0.5" size={18} />
-          <p className="text-sm text-red-800 font-medium">{errores.general}</p>
+          <AlertCircle
+            className="text-quality-red shrink-0 mt-0.5"
+            size={18}
+          />
+          <p className="text-sm text-red-800 font-medium">
+            {erroresGlobal.general}
+          </p>
         </div>
       )}
 
       {/* BÚSQUEDA */}
       <div className="bg-white p-4 rounded-t-xl border border-gray-200 border-b-0 flex items-center gap-3">
         <div className="relative w-full max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            size={18}
+          />
           <input
             type="text"
             placeholder="Buscar por nombre o DNI..."
@@ -198,22 +288,34 @@ export default function EmpleadosPage() {
           <tbody className="divide-y divide-gray-100">
             {isLoading ? (
               <tr>
-                <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                <td
+                  colSpan={5}
+                  className="px-6 py-12 text-center text-gray-500"
+                >
                   <div className="flex flex-col items-center justify-center gap-2">
-                    <Loader2 className="animate-spin text-quality-red" size={24} />
+                    <Loader2
+                      className="animate-spin text-quality-red"
+                      size={24}
+                    />
                     <span>Conectando con la base de datos MySQL...</span>
                   </div>
                 </td>
               </tr>
             ) : empleadosFiltrados.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                <td
+                  colSpan={5}
+                  className="px-6 py-12 text-center text-gray-500"
+                >
                   No hay empleados registrados en la base de datos.
                 </td>
               </tr>
             ) : (
               empleadosFiltrados.map((e) => (
-                <tr key={e.id_empleado} className="hover:bg-gray-50/50 transition-colors group">
+                <tr
+                  key={e.id_empleado}
+                  className="hover:bg-gray-50/50 transition-colors group"
+                >
                   <td className="px-6 py-4 font-bold text-quality-dark">
                     {e.nombre} {e.apellidos}
                   </td>
@@ -223,9 +325,18 @@ export default function EmpleadosPage() {
                       {e.id_empleado_tracker}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-gray-600">{e.matricula || "-"}</td>
+                  <td className="px-6 py-4 text-gray-600">
+                    {e.matricula || "-"}
+                  </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => abrirModalEditar(e)}
+                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                        title="Editar"
+                      >
+                        <Edit size={16} />
+                      </button>
                       <button
                         onClick={() => handleArchivar(e.id_empleado)}
                         className="p-2 text-gray-400 hover:text-quality-red hover:bg-red-50 rounded-lg"
@@ -248,7 +359,8 @@ export default function EmpleadosPage() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden transform transition-all">
             <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
               <h3 className="text-lg font-bold text-quality-dark flex items-center gap-2">
-                <Users size={20} className="text-quality-red" /> Añadir Nuevo Empleado
+                <Users size={20} className="text-quality-red" />{" "}
+                {esEdicion ? "Editar Empleado" : "Añadir Nuevo Empleado"}
               </h3>
               <button
                 onClick={cerrarModal}
@@ -259,60 +371,106 @@ export default function EmpleadosPage() {
             </div>
 
             <div className="p-6 space-y-4">
+              {/* ERROR GENERAL DEL MODAL */}
+              {erroresModal.general && (
+                <div className="bg-red-50 text-red-800 p-3 rounded mb-4 flex gap-2">
+                  <AlertCircle size={18} /> {erroresModal.general}
+                </div>
+              )}
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">ID Empleado (DNI/NIE)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  ID Empleado (DNI/NIE)
+                </label>
                 <input
                   value={idEmpleado}
                   onChange={(e) => setIdEmpleado(e.target.value)}
+                  disabled={esEdicion}
                   className={`w-full border rounded-lg px-3 py-2 outline-none transition-colors ${
-                    errores.id_empleado ? "border-quality-red" : "border-gray-300"
+                    erroresModal.id_empleado
+                      ? "border-quality-red"
+                      : "border-gray-300"
+                  } ${
+                    esEdicion
+                      ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                      : ""
                   }`}
                   placeholder="02906525S"
                 />
-                {errores.id_empleado && <p className="text-quality-red text-xs mt-1">{errores.id_empleado}</p>}
+                {erroresModal.id_empleado && (
+                  <p className="text-quality-red text-xs mt-1">
+                    {erroresModal.id_empleado}
+                  </p>
+                )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Código App Fichaje (Tracker)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Código App Fichaje (Tracker)
+                </label>
                 <input
                   value={tracker}
                   onChange={(e) => setTracker(e.target.value)}
                   className={`w-full border rounded-lg px-3 py-2 outline-none transition-colors ${
-                    errores.tracker ? "border-quality-red" : "border-gray-300"
+                    erroresModal.tracker
+                      ? "border-quality-red"
+                      : "border-gray-300"
                   }`}
                   placeholder="689df899504a40fd9f5e2123"
                 />
-                {errores.tracker && <p className="text-quality-red text-xs mt-1">{errores.tracker}</p>}
+                {erroresModal.tracker && (
+                  <p className="text-quality-red text-xs mt-1">
+                    {erroresModal.tracker}
+                  </p>
+                )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nombre
+                </label>
                 <input
                   value={nombre}
                   onChange={(e) => setNombre(e.target.value)}
                   className={`w-full border rounded-lg px-3 py-2 outline-none transition-colors ${
-                    errores.nombre ? "border-quality-red" : "border-gray-300"
+                    erroresModal.nombre
+                      ? "border-quality-red"
+                      : "border-gray-300"
                   }`}
                   placeholder="ALBA"
                 />
-                {errores.nombre && <p className="text-quality-red text-xs mt-1">{errores.nombre}</p>}
+                {erroresModal.nombre && (
+                  <p className="text-quality-red text-xs mt-1">
+                    {erroresModal.nombre}
+                  </p>
+                )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Apellidos</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Apellidos
+                </label>
                 <input
                   value={apellidos}
                   onChange={(e) => setApellidos(e.target.value)}
                   className={`w-full border rounded-lg px-3 py-2 outline-none transition-colors ${
-                    errores.apellidos ? "border-quality-red" : "border-gray-300"
+                    erroresModal.apellidos
+                      ? "border-quality-red"
+                      : "border-gray-300"
                   }`}
                   placeholder="GARZO SOTO"
                 />
-                {errores.apellidos && <p className="text-quality-red text-xs mt-1">{errores.apellidos}</p>}
+                {erroresModal.apellidos && (
+                  <p className="text-quality-red text-xs mt-1">
+                    {erroresModal.apellidos}
+                  </p>
+                )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Matrícula (opcional)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Matrícula (opcional)
+                </label>
                 <input
                   value={matricula}
                   onChange={(e) => setMatricula(e.target.value)}
@@ -337,7 +495,13 @@ export default function EmpleadosPage() {
                 className="px-4 py-2 text-sm font-medium bg-quality-dark text-white hover:bg-black rounded-lg transition-colors shadow-sm flex items-center gap-2 disabled:opacity-70"
               >
                 {isSaving && <Loader2 className="animate-spin" size={16} />}
-                {isSaving ? "Guardando..." : "Guardar Empleado"}
+                {isSaving
+                  ? esEdicion
+                    ? "Guardando cambios..."
+                    : "Guardando..."
+                  : esEdicion
+                  ? "Guardar cambios"
+                  : "Guardar Empleado"}
               </button>
             </div>
           </div>
