@@ -1,135 +1,95 @@
-import re
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from typing import List, Optional
+from sqlalchemy import select
 
 from app.database import get_db
 from app.models.banco import Banco
+from app.schemas.banco import BancoCreate, BancoUpdate, BancoOut
 
 router = APIRouter(prefix="/api/bancos", tags=["Bancos"])
 
-# ==========================================
-# 1. UTILIDADES DE VALIDACIÓN (Adaptadas)
-# ==========================================
-def validar_y_limpiar_iban(iban: str) -> str:
-    # Limpiar espacios y pasar a mayúsculas
-    iban_limpio = iban.replace(" ", "").upper()
-    
-    # Validación básica de formato (Regex genérico para IBAN)
-    if not re.match(r"^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$", iban_limpio):
-        raise HTTPException(
-            status_code=400, 
-            detail="El formato del IBAN es inválido. Debe empezar por 2 letras y seguir con dígitos."
-        )
-    
-    # Validación específica España (24 caracteres)
-    if iban_limpio.startswith("ES") and len(iban_limpio) != 24:
-        raise HTTPException(
-            status_code=400, 
-            detail="Un IBAN español debe tener exactamente 24 caracteres."
-        )
-        
-    return iban_limpio
-
-# ==========================================
-# 2. ESQUEMAS PYDANTIC
-# ==========================================
-class BancoBase(BaseModel):
-    entidad: str
-    iban: str
-    estado: str = "Principal"
-
-class BancoCreate(BancoBase):
-    pass
-
-class BancoUpdate(BaseModel):
-    entidad: Optional[str] = None
-    iban: Optional[str] = None
-    estado: Optional[str] = None
-
-class BancoResponse(BancoBase):
-    id: int
-    
-    class Config:
-        from_attributes = True
-
-# ==========================================
-# 3. ENDPOINTS
-# ==========================================
-
-# LISTAR BANCOS
-@router.get("/", response_model=List[BancoResponse])
+@router.get("/", response_model=list[BancoOut])
 def listar_bancos(db: Session = Depends(get_db)):
-    return db.query(Banco).all()
+    return db.execute(select(Banco)).scalars().all()
 
-
-# CREAR BANCO
-@router.post("/", response_model=BancoResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=BancoOut, status_code=status.HTTP_201_CREATED)
 def crear_banco(payload: BancoCreate, db: Session = Depends(get_db)):
-    # 1. Validar formato IBAN
-    iban_limpio = validar_y_limpiar_iban(payload.iban)
+    # PK duplicada
+    existe = db.execute(
+        select(Banco).where(Banco.id_banco_cobro == payload.id_banco_cobro)
+    ).scalar_one_or_none()
+    if existe:
+        raise HTTPException(status_code=409, detail="Ya existe un banco con ese ID_BANCO_COBRO")
 
-    # 2. Validar que no exista ya en BBDD
-    banco_existente = db.query(Banco).filter(Banco.iban == iban_limpio).first()
-    if banco_existente:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, 
-            detail="Ya existe una cuenta bancaria registrada con ese IBAN."
-        )
+    # Evitar duplicar IBAN dentro de la misma sociedad (si viene informado)
+    if payload.codigo_iban:
+        dup = db.execute(
+            select(Banco).where(
+                Banco.id_sociedad == payload.id_sociedad,
+                Banco.codigo_iban == payload.codigo_iban
+            )
+        ).scalar_one_or_none()
+        if dup:
+            raise HTTPException(status_code=409, detail="Ya existe una cuenta con ese IBAN en esa sociedad")
 
-    # 3. Guardar
-    nuevo_banco = Banco(
-        entidad=payload.entidad.strip(),
-        iban=iban_limpio,
-        estado=payload.estado
+    nuevo = Banco(
+        id_sociedad=payload.id_sociedad,
+        id_banco_cobro=payload.id_banco_cobro,
+        n_banco_cobro=payload.n_banco_cobro,
+        num_cuenta=payload.num_cuenta,
+        codigo_iban=payload.codigo_iban,
     )
-    
-    db.add(nuevo_banco)
+    db.add(nuevo)
     db.commit()
-    db.refresh(nuevo_banco)
-    
-    return nuevo_banco
+    db.refresh(nuevo)
+    return nuevo
 
+@router.put("/{id_banco_cobro}", response_model=BancoOut)
+def editar_banco(id_banco_cobro: str, payload: BancoUpdate, db: Session = Depends(get_db)):
+    id_banco_cobro = id_banco_cobro.upper().strip()
 
-# EDITAR BANCO
-@router.put("/{banco_id}", response_model=BancoResponse)
-def editar_banco(banco_id: int, payload: BancoUpdate, db: Session = Depends(get_db)):
-    banco = db.query(Banco).filter(Banco.id == banco_id).first()
+    banco = db.execute(
+        select(Banco).where(Banco.id_banco_cobro == id_banco_cobro)
+    ).scalar_one_or_none()
 
     if not banco:
         raise HTTPException(status_code=404, detail="Cuenta bancaria no encontrada")
 
-    # Si cambia el IBAN, validamos formato y duplicados
-    if payload.iban:
-        iban_nuevo = validar_y_limpiar_iban(payload.iban)
-        if iban_nuevo != banco.iban:
-            otro = db.query(Banco).filter(Banco.iban == iban_nuevo).first()
-            if otro:
-                raise HTTPException(status_code=409, detail="El nuevo IBAN ya está registrado en otra cuenta.")
-            banco.iban = iban_nuevo
+    if payload.codigo_iban is not None and payload.codigo_iban != banco.codigo_iban:
+        if payload.codigo_iban:
+            dup = db.execute(
+                select(Banco).where(
+                    Banco.id_sociedad == banco.id_sociedad,
+                    Banco.codigo_iban == payload.codigo_iban
+                )
+            ).scalar_one_or_none()
+            if dup:
+                raise HTTPException(status_code=409, detail="Ese IBAN ya existe en esa sociedad")
+        banco.codigo_iban = payload.codigo_iban
 
-    if payload.entidad is not None:
-        banco.entidad = payload.entidad.strip()
-    
-    if payload.estado is not None:
-        banco.estado = payload.estado
+    if payload.n_banco_cobro is not None:
+        banco.n_banco_cobro = payload.n_banco_cobro
+    if payload.num_cuenta is not None:
+        banco.num_cuenta = payload.num_cuenta
 
     db.commit()
     db.refresh(banco)
     return banco
 
+@router.patch("/{id_banco_cobro}/archivar")
+def archivar_banco(id_banco_cobro: str, db: Session = Depends(get_db)):
+    """
+    La tabla BANCOS no tiene ESTADO: archivar = eliminar registro.
+    """
+    id_banco_cobro = id_banco_cobro.upper().strip()
 
-# ARCHIVAR BANCO (Soft Delete)
-@router.patch("/{banco_id}/archivar")
-def archivar_banco(banco_id: int, db: Session = Depends(get_db)):
-    banco = db.query(Banco).filter(Banco.id == banco_id).first()
+    banco = db.execute(
+        select(Banco).where(Banco.id_banco_cobro == id_banco_cobro)
+    ).scalar_one_or_none()
 
     if not banco:
         raise HTTPException(status_code=404, detail="Cuenta bancaria no encontrada")
 
-    # Cambiamos estado a "Inactiva" o "Archivada"
-    banco.estado = "Archivada"
+    db.delete(banco)
     db.commit()
-
-    return {"mensaje": "Cuenta bancaria archivada correctamente"}
+    return {"mensaje": "Cuenta bancaria archivada (eliminada) correctamente"}
