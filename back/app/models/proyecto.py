@@ -9,7 +9,7 @@ class Proyecto(Base):
 
     id_sociedad = Column("ID_SOCIEDAD", String(10), index = True)
     id_proyecto = Column("ID_PROYECTO", String(50), nullable = False, primary_key = True)
-    id_cliente = Column("ID_CLIENTE", String(50), ForeignKey("CLIENTES.ID_CLIENTE"), index = True)
+    id_cliente = Column("ID_CLIENTE", String(50), index = True)
 
     nombre_proyecto = Column("NOMBRE_PROYECTO", String(255), nullable=False)
     codigo_proyecto_tracker = Column("CODIGO_PROYECTO_TRACKER", String(100))
@@ -17,5 +17,3 @@ class Proyecto(Base):
     tipo_pago = Column("TIPO_PAGO", String(50))
     precio = Column("PRECIO", Numeric(15, 2), default = 0.00)
     fec_inicio = Column("FEC_INICIO", Date)
-
-    cliente = relationship("Cliente", lazy="joined", foreign_keys=[id_cliente])
