@@ -1,20 +1,35 @@
+"""
+Módulo de generación de FACTURAS (actualmente en memoria).
+
+Responsabilidades:
+- Previsualizar cálculo de factura (preview).
+- Agrupar horas por empleado + proyecto.
+- Aplicar tarifa por hora.
+- Generar factura definitiva.
+- Bloquear horas como facturadas.
+
+Notas críticas:
+- Actualmente NO usa base de datos.
+- Toda la lógica está en memoria.
+- Falta migrar a modelo ORM real.
+- El control de estado de horas es manual.
+
+Este módulo representa lógica de negocio pura.
+"""
+
+
 from fastapi import APIRouter, Body
 
-# CAMBIO CRÍTICO: Eliminamos el import que rompe el servidor
-# from app.routes.empleados import empleados, horas_registradas
-
-# Creamos las variables aquí vacías para que el código de abajo no explote
 empleados =[]
 horas_registradas =[]
 
-# Añadimos el prefijo /api
 router = APIRouter(prefix="/api", tags=["Facturas"])
 
-# Facturas en memoria (luego irá a BBDD)
+
 facturas_emitidas =[]
 _factura_seq = 1
 
-# Tarifa en memoria (luego irá a BBDD)
+
 tarifas_asignadas =[
     {"id_empleado": "02906525S", "id_proyecto": "SOP_META4", "precio_hora": 45.50, "activa": True},
     {"id_empleado": "12345678A", "id_proyecto": "PROY001", "precio_hora": 35.00, "activa": True},

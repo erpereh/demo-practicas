@@ -1,4 +1,17 @@
-# app/routes/proyectos.py
+"""
+Router de gestión de PROYECTOS.
+
+Responsabilidades:
+- CRUD de proyectos.
+- Búsqueda avanzada (q).
+- Filtros por sociedad y cliente.
+- Validación de código tracker por sociedad.
+
+Diseño:
+- Uso de SQL dinámico (stmt).
+- Ordenación por nombre.
+- Protección contra duplicidad lógica.
+"""
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy import select, or_, func
