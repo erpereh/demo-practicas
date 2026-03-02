@@ -329,7 +329,7 @@ export default function ProyectosPage() {
                                             value={form.id_proyecto}
                                             onChange={e => updateForm("id_proyecto", e.target.value)}
                                             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-quality-red/20 focus:border-quality-red outline-none"
-                                            placeholder="PRJ-001"
+                                            placeholder="ABC-001"
                                         />
                                     </div>
                                     <div>
@@ -339,7 +339,7 @@ export default function ProyectosPage() {
                                             value={form.id_sociedad}
                                             onChange={e => updateForm("id_sociedad", e.target.value)}
                                             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-quality-red/20 focus:border-quality-red outline-none"
-                                            placeholder="SOC-001"
+                                            placeholder="ABC-001"
                                         />
                                     </div>
                                 </div>
@@ -364,7 +364,7 @@ export default function ProyectosPage() {
                                         value={form.id_cliente}
                                         onChange={e => updateForm("id_cliente", e.target.value)}
                                         className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-quality-red/20 focus:border-quality-red outline-none"
-                                        placeholder="CLI-001"
+                                        placeholder="ABC-001"
                                     />
                                 </div>
                             )}

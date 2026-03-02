@@ -64,7 +64,7 @@ class ProyectoCreate(BaseModel):
         @classmethod
         def val_sociedad(cls, v: str) -> str:
             v = (_clean_text(v) or "").upper()
-            if not re.fullmatch(r"[A-Z0-9]{1,10}", v):
+            if not re.fullmatch(r"[A-Z0-9-]{1,10}", v):
                 raise ValueError("ID_SOCIEDAD: solo letras/números, sin espacios")
             return v
 
@@ -72,7 +72,7 @@ class ProyectoCreate(BaseModel):
         @classmethod
         def val_id_proyecto(cls, v: str) -> str:
             v = (_clean_text(v) or "").upper()
-            if not re.fullmatch(r"[A-Z0-9_]{1,50}", v):
+            if not re.fullmatch(r"[A-Z0-9-]{1,50}", v):
                 raise ValueError("ID_PROYECTO: alfanumérico (y _), 2-5 caracteres, sin espacios")
             return v
 
@@ -80,7 +80,7 @@ class ProyectoCreate(BaseModel):
         @classmethod
         def val_id_cliente(cls, v: str) -> str:
             v = (_clean_text(v) or "").upper()
-            if not re.fullmatch(r"[A-Z0-9_]{1,50}", v):
+            if not re.fullmatch(r"[A-Z0-9-]{1,50}", v):
                 raise ValueError("ID_CLIENTE: alfanumérico (y _), 2-5 caracteres, sin espacios")
             return v
 
@@ -119,21 +119,21 @@ class ProyectoCreate(BaseModel):
         @validator("id_sociedad")
         def val_sociedad(cls, v):
             v = (_clean_text(v) or "").upper()
-            if not re.fullmatch(r"[A-Z0-9]{1,10}", v):
+            if not re.fullmatch(r"[A-Z0-9-]{1,10}", v):
                 raise ValueError("ID_SOCIEDAD: solo letras/números, sin espacios")
             return v
 
         @validator("id_proyecto")
         def val_id_proyecto(cls, v):
             v = (_clean_text(v) or "").upper()
-            if not re.fullmatch(r"[A-Z0-9_]{1,50}", v):
+            if not re.fullmatch(r"[A-Z0-9-]{1,50}", v):
                 raise ValueError("ID_PROYECTO: alfanumérico (y _), 2-5 caracteres, sin espacios")
             return v
 
         @validator("id_cliente")
         def val_id_cliente(cls, v):
             v = (_clean_text(v) or "").upper()
-            if not re.fullmatch(r"[A-Z0-9_]{1,50}", v):
+            if not re.fullmatch(r"[A-Z0-9-]{1,50}", v):
                 raise ValueError("ID_CLIENTE: alfanumérico (y _), 2-5 caracteres, sin espacios")
             return v
 
