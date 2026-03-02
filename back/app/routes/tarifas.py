@@ -1,54 +1,78 @@
-from fastapi import APIRouter, Body
-from app.models.hist_proyecto import HistProyecto
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
 from datetime import datetime
 
-router = APIRouter()
+from app.models.hist_proyecto import HistProyecto
+from app.database import get_db
 
-# Lista temporal para simular la base de datos
-tarifas = [
-    HistProyecto(
-        id_sociedad="01",
-        id_empleado="02906525S",
-        id_cliente="CYC",
-        id_proyecto="SOP_META4",
-        fec_inicio=datetime.strptime("2025-06-01", "%Y-%m-%d").date(),
-        tarifa=25.00
-    ),
-]
+router = APIRouter(
+    prefix="/api",
+    tags=["Tarifas"]
+)
 
-# LISTAR TARIFAS
+# LISTAR TARIFAS (desde BBDD real)
 @router.get("/tarifas")
-def listar_tarifas():
+def listar_tarifas(db: Session = Depends(get_db)):
+
+    registros = db.query(HistProyecto).all()
+
     return [
         {
-            "empleado": t.id_empleado,
-            "cliente": t.id_cliente,
-            "proyecto": t.id_proyecto,
-            "tarifa": t.tarifa,
-            "fecha_inicio": t.fec_inicio
+            "id_sociedad": r.id_sociedad,
+            "empleado": r.id_empleado,
+            "cliente": r.id_cliente,
+            "proyecto": r.id_proyecto,
+            "tarifa": float(r.tarifa),                  # Numeric → float
+            "fecha_inicio": r.fec_inicio.isoformat()   # Date → string ISO
         }
-        for t in tarifas
+        for r in registros
     ]
 
-# ASIGNAR TARIFA
+
+# ASIGNAR TARIFA (INSERT real)
 @router.post("/tarifas")
 def asignar_tarifa(
-    id_sociedad: str = Body(...),
-    id_empleado: str = Body(...),
-    id_cliente: str = Body(...),
-    id_proyecto: str = Body(...),
-    fec_inicio: str = Body(...),
-    tarifa: float = Body(...)
+    id_sociedad: str,
+    id_empleado: str,
+    id_cliente: str,
+    id_proyecto: str,
+    fec_inicio: str,
+    tarifa: float,
+    db: Session = Depends(get_db)
 ):
+
+    fecha = datetime.strptime(fec_inicio, "%Y-%m-%d").date()
+
+    # 🔎 Evitar duplicados exactos
+    existe = db.query(HistProyecto).filter(
+        HistProyecto.id_empleado == id_empleado,
+        HistProyecto.id_proyecto == id_proyecto,
+        HistProyecto.fec_inicio == fecha
+    ).first()
+
+    if existe:
+        raise HTTPException(status_code=400, detail="Ya existe una tarifa con esa fecha")
+
     nueva = HistProyecto(
         id_sociedad=id_sociedad,
         id_empleado=id_empleado,
         id_cliente=id_cliente,
         id_proyecto=id_proyecto,
-        fec_inicio=datetime.strptime(fec_inicio, "%Y-%m-%d").date(),
+        fec_inicio=fecha,
         tarifa=tarifa
     )
 
-    tarifas.append(nueva)
+    db.add(nueva)
+    db.commit()
+    db.refresh(nueva)
 
-    return {"mensaje": "Tarifa asignada correctamente"}
+    # No hay campo 'id', devolvemos los campos compuestos
+    return {
+        "mensaje": "Tarifa asignada correctamente",
+        "id_sociedad": nueva.id_sociedad,
+        "id_empleado": nueva.id_empleado,
+        "id_cliente": nueva.id_cliente,
+        "id_proyecto": nueva.id_proyecto,
+        "fecha_inicio": nueva.fec_inicio.isoformat(),
+        "tarifa": float(nueva.tarifa)
+    }
