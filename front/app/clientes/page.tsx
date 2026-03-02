@@ -384,7 +384,7 @@ export default function ClientesPage() {
               <div className="grid grid-cols-3 gap-4">
                 <div className="col-span-2">
                   <label className="text-sm font-medium block mb-1">
-                    Razón Social
+                    Empresa
                   </label>
                   <input
                     className="w-full border rounded-lg px-3 py-2"
