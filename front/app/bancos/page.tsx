@@ -1,6 +1,15 @@
 "use client";
-import { useState, useEffect } from "react";
-import { Search, Plus, Trash2, X, Landmark, Loader2, AlertCircle } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Search,
+  Plus,
+  Trash2,
+  X,
+  Landmark,
+  Loader2,
+  AlertCircle,
+  Edit,
+} from "lucide-react";
 
 type BancoAPI = {
   id_sociedad: string;
@@ -30,6 +39,9 @@ export default function BancosPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Modo edición
+  const [editing, setEditing] = useState<BancoAPI | null>(null);
+
   // Formulario (tabla real)
   const [idSociedad, setIdSociedad] = useState("01");
   const [idBancoCobro, setIdBancoCobro] = useState("");
@@ -39,15 +51,50 @@ export default function BancosPage() {
 
   const [errores, setErrores] = useState<{ general?: string }>({});
 
+  const resetForm = () => {
+    setIdSociedad("01");
+    setIdBancoCobro("");
+    setNombreBanco("");
+    setNumCuenta("");
+    setCodigoIban("");
+  };
+
+  const openCreate = () => {
+    setEditing(null);
+    resetForm();
+    setErrores({});
+    setIsModalOpen(true);
+  };
+
+  const openEdit = (b: BancoAPI) => {
+    setEditing(b);
+    setErrores({});
+    setIdSociedad(b.id_sociedad);
+    setIdBancoCobro(b.id_banco_cobro);
+    setNombreBanco(b.n_banco_cobro);
+    setNumCuenta(b.num_cuenta || "");
+    setCodigoIban(b.codigo_iban || "");
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditing(null);
+    setErrores({});
+    resetForm();
+  };
+
   const cargarBancos = async () => {
     try {
       setIsLoading(true);
       setErrores({});
+
       const res = await fetch(`${API_URL}/api/bancos/`);
       if (!res.ok) {
         setErrores({ general: await parseFastApiError(res) });
         return;
       }
+
       setBancos(await res.json());
     } catch (e) {
       console.error(e);
@@ -62,28 +109,74 @@ export default function BancosPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const bancosFiltrados = useMemo(() => {
+    const t = searchTerm.toLowerCase();
+    return bancos.filter((b) => {
+      return (
+        b.n_banco_cobro.toLowerCase().includes(t) ||
+        (b.codigo_iban || "").toLowerCase().includes(t) ||
+        (b.num_cuenta || "").toLowerCase().includes(t) ||
+        b.id_banco_cobro.toLowerCase().includes(t) ||
+        b.id_sociedad.toLowerCase().includes(t)
+      );
+    });
+  }, [bancos, searchTerm]);
+
   const handleGuardar = async () => {
-    if (!idSociedad.trim() || !idBancoCobro.trim() || !nombreBanco.trim()) {
-      setErrores({ general: "Sociedad, ID Banco y Nombre del banco son obligatorios." });
-      return;
+    // CREATE
+    if (!editing) {
+      if (!idSociedad.trim() || !idBancoCobro.trim() || !nombreBanco.trim()) {
+        setErrores({ general: "Sociedad, ID Banco y Entidad bancaria son obligatorios." });
+        return;
+      }
+    } else {
+      // EDIT (según tu schema: solo nombre/cuenta/iban)
+      if (!nombreBanco.trim()) {
+        setErrores({ general: "La entidad bancaria es obligatoria." });
+        return;
+      }
     }
 
     try {
       setIsSaving(true);
       setErrores({});
 
-      const payload = {
-        id_sociedad: idSociedad.trim().toUpperCase(),
-        id_banco_cobro: idBancoCobro.trim().toUpperCase(),
+      if (!editing) {
+        const payload = {
+          id_sociedad: idSociedad.trim().toUpperCase(),
+          id_banco_cobro: idBancoCobro.trim().toUpperCase(),
+          n_banco_cobro: nombreBanco.trim(),
+          num_cuenta: numCuenta.trim() || null,
+          codigo_iban: codigoIban.trim() || null,
+        };
+
+        const res = await fetch(`${API_URL}/api/bancos/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          setErrores({ general: await parseFastApiError(res) });
+          return;
+        }
+
+        closeModal();
+        await cargarBancos();
+        return;
+      }
+
+      // UPDATE
+      const updatePayload = {
         n_banco_cobro: nombreBanco.trim(),
         num_cuenta: numCuenta.trim() || null,
         codigo_iban: codigoIban.trim() || null,
       };
 
-      const res = await fetch(`${API_URL}/api/bancos/`, {
-        method: "POST",
+      const res = await fetch(`${API_URL}/api/bancos/${encodeURIComponent(editing.id_banco_cobro)}`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(updatePayload),
       });
 
       if (!res.ok) {
@@ -91,13 +184,10 @@ export default function BancosPage() {
         return;
       }
 
-      setIsModalOpen(false);
-      setIdBancoCobro("");
-      setNombreBanco("");
-      setNumCuenta("");
-      setCodigoIban("");
+      closeModal();
       await cargarBancos();
-    } catch {
+    } catch (e) {
+      console.error(e);
       setErrores({ general: "Error de conexión" });
     } finally {
       setIsSaving(false);
@@ -118,56 +208,54 @@ export default function BancosPage() {
     await cargarBancos();
   };
 
-  const bancosFiltrados = bancos.filter((b) => {
-    const t = searchTerm.toLowerCase();
-    return (
-      b.n_banco_cobro.toLowerCase().includes(t) ||
-      (b.codigo_iban || "").toLowerCase().includes(t) ||
-      b.id_banco_cobro.toLowerCase().includes(t)
-    );
-  });
-
   return (
     <div className="p-10 max-w-7xl mx-auto relative">
-      <div className="flex justify-between items-center mb-8">
+      {/* CABECERA */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-quality-dark">Cuentas Bancarias</h1>
-          <p className="text-gray-500">Gestión de cuentas e IBANs.</p>
+          <h1 className="text-3xl font-bold text-quality-dark tracking-tight">Cuentas Bancarias</h1>
+          <p className="text-gray-500 mt-1">Gestión de cuentas de cobro e IBAN.</p>
         </div>
+
         <button
-          onClick={() => setIsModalOpen(true)}
-          className="bg-quality-red text-white px-5 py-2.5 rounded-lg flex items-center gap-2 hover:bg-red-700 transition"
+          onClick={openCreate}
+          className="bg-quality-red hover:bg-[#C20017] text-white px-5 py-2.5 rounded-lg font-medium transition-all shadow-md flex items-center gap-2"
         >
           <Plus size={18} /> Añadir Cuenta
         </button>
       </div>
 
+      {/* ERROR GENERAL */}
       {errores.general && (
-        <div className="bg-red-50 text-red-800 p-3 rounded mb-4 flex gap-2">
-          <AlertCircle size={18} /> {errores.general}
+        <div className="bg-red-50 border-l-4 border-quality-red p-3 rounded-r-md flex items-start gap-3 mb-4">
+          <AlertCircle className="text-quality-red shrink-0 mt-0.5" size={18} />
+          <p className="text-sm text-red-800 font-medium">{errores.general}</p>
         </div>
       )}
 
-      <div className="bg-white p-4 rounded-t-xl border border-gray-200 border-b-0 flex gap-3">
+      {/* BÚSQUEDA */}
+      <div className="bg-white p-4 rounded-t-xl border border-gray-200 border-b-0 flex items-center gap-3">
         <div className="relative w-full max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
           <input
             type="text"
-            placeholder="Buscar banco, IBAN o ID..."
-            className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none focus:border-quality-red"
+            placeholder="Buscar banco, IBAN, cuenta o ID..."
+            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-quality-red/20 focus:border-quality-red transition-all"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
       </div>
 
+      {/* TABLA */}
       <div className="bg-white border border-gray-200 rounded-b-xl overflow-hidden shadow-sm">
-        <table className="w-full text-left">
-          <thead className="bg-gray-50 border-b text-xs uppercase text-gray-500 font-semibold">
-            <tr>
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-gray-50/50 border-b border-gray-200 text-xs uppercase tracking-wider text-gray-500 font-semibold">
               <th className="px-6 py-4">Entidad</th>
               <th className="px-6 py-4">IBAN</th>
               <th className="px-6 py-4">Nº Cuenta</th>
+              <th className="px-6 py-4">Sociedad</th>
               <th className="px-6 py-4">ID Banco</th>
               <th className="px-6 py-4 text-right">Acciones</th>
             </tr>
@@ -176,32 +264,52 @@ export default function BancosPage() {
           <tbody className="divide-y divide-gray-100">
             {isLoading ? (
               <tr>
-                <td colSpan={5} className="p-10 text-center">
-                  <Loader2 className="animate-spin inline mr-2" /> Cargando...
+                <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                  <div className="flex flex-col items-center justify-center gap-2">
+                    <Loader2 className="animate-spin text-quality-red" size={24} />
+                    <span>Cargando cuentas bancarias...</span>
+                  </div>
                 </td>
               </tr>
             ) : bancosFiltrados.length === 0 ? (
               <tr>
-                <td colSpan={5} className="p-10 text-center">No hay cuentas.</td>
+                <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                  No hay cuentas registradas.
+                </td>
               </tr>
             ) : (
               bancosFiltrados.map((b) => (
-                <tr key={b.id_banco_cobro} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 font-bold text-quality-dark flex items-center gap-2">
-                    <Landmark size={16} className="text-gray-400" /> {b.n_banco_cobro}
-                    <span className="text-xs text-gray-400">({b.id_sociedad})</span>
+                <tr key={b.id_banco_cobro} className="hover:bg-gray-50/50 transition-colors group">
+                  <td className="px-6 py-4">
+                    <p className="font-bold text-quality-dark flex items-center gap-2">
+                      <Landmark size={16} className="text-gray-400" />
+                      {b.n_banco_cobro}
+                    </p>
                   </td>
-                  <td className="px-6 py-4 font-mono text-sm">{b.codigo_iban || "-"}</td>
-                  <td className="px-6 py-4 font-mono text-sm">{b.num_cuenta || "-"}</td>
-                  <td className="px-6 py-4 font-mono text-sm">{b.id_banco_cobro}</td>
+
+                  <td className="px-6 py-4 font-mono text-sm text-gray-700">{b.codigo_iban || "-"}</td>
+                  <td className="px-6 py-4 font-mono text-sm text-gray-700">{b.num_cuenta || "-"}</td>
+                  <td className="px-6 py-4 text-gray-600">{b.id_sociedad}</td>
+                  <td className="px-6 py-4 font-mono text-sm text-gray-700">{b.id_banco_cobro}</td>
+
                   <td className="px-6 py-4 text-right">
-                    <button
-                      className="p-2 text-gray-400 hover:text-red-600"
-                      onClick={() => handleArchivar(b.id_banco_cobro)}
-                      title="Archivar"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                        onClick={() => openEdit(b)}
+                        title="Editar"
+                      >
+                        <Edit size={16} />
+                      </button>
+
+                      <button
+                        className="p-2 text-gray-400 hover:text-quality-red hover:bg-red-50 rounded-lg"
+                        onClick={() => handleArchivar(b.id_banco_cobro)}
+                        title="Archivar"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -210,56 +318,112 @@ export default function BancosPage() {
         </table>
       </div>
 
+      {/* MODAL */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <div className="flex justify-between items-center mb-6 border-b pb-4">
-              <h3 className="text-lg font-bold text-quality-dark flex gap-2 items-center">
-                <Landmark className="text-quality-red" /> Nueva Cuenta
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm transition-opacity">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden transform transition-all">
+            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <h3 className="text-lg font-bold text-quality-dark flex items-center gap-2">
+                <Landmark size={20} className="text-quality-red" />
+                {editing ? "Editar Cuenta Bancaria" : "Añadir Nueva Cuenta"}
               </h3>
-              <button onClick={() => setIsModalOpen(false)}>
-                <X className="text-gray-400 hover:text-black" />
+              <button
+                onClick={closeModal}
+                className="text-gray-400 hover:text-gray-700 transition-colors p-1 rounded-md hover:bg-gray-200"
+              >
+                <X size={20} />
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="p-6 space-y-4">
+              {errores.general && (
+                <div className="bg-red-50 border-l-4 border-quality-red p-3 rounded-r-md flex items-start gap-3">
+                  <AlertCircle className="text-quality-red shrink-0 mt-0.5" size={18} />
+                  <p className="text-sm text-red-800 font-medium">{errores.general}</p>
+                </div>
+              )}
+
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="text-sm font-medium block mb-1">Sociedad</label>
-                  <input className="w-full border rounded-lg px-3 py-2" value={idSociedad} onChange={(e) => setIdSociedad(e.target.value)} />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Sociedad</label>
+                  <input
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none"
+                    value={idSociedad}
+                    onChange={(e) => setIdSociedad(e.target.value)}
+                    disabled={!!editing}
+                    title={editing ? "No se puede editar la sociedad" : ""}
+                  />
                 </div>
+
                 <div className="col-span-2">
-                  <label className="text-sm font-medium block mb-1">ID Banco Cobro</label>
-                  <input className="w-full border rounded-lg px-3 py-2 font-mono" placeholder="001" value={idBancoCobro} onChange={(e) => setIdBancoCobro(e.target.value)} />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">ID Banco Cobro</label>
+                  <input
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none font-mono"
+                    placeholder="001"
+                    value={idBancoCobro}
+                    onChange={(e) => setIdBancoCobro(e.target.value)}
+                    disabled={!!editing}
+                    title={editing ? "No se puede editar el ID" : ""}
+                  />
                 </div>
               </div>
 
               <div>
-                <label className="text-sm font-medium block mb-1">Entidad Bancaria</label>
-                <input className="w-full border rounded-lg px-3 py-2" placeholder="BBVA" value={nombreBanco} onChange={(e) => setNombreBanco(e.target.value)} />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Entidad Bancaria</label>
+                <input
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none"
+                  placeholder="Banco Bilbao Vizcaya Argentaria"
+                  value={nombreBanco}
+                  onChange={(e) => setNombreBanco(e.target.value)}
+                />
               </div>
 
-              <div>
-                <label className="text-sm font-medium block mb-1">IBAN (opcional)</label>
-                <input className="w-full border rounded-lg px-3 py-2 font-mono" placeholder="ES..." value={codigoIban} onChange={(e) => setCodigoIban(e.target.value)} />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">IBAN (opcional)</label>
+                  <input
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none font-mono"
+                    placeholder="ES8601822737190201582733"
+                    value={codigoIban}
+                    onChange={(e) => setCodigoIban(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nº Cuenta (opcional)</label>
+                  <input
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none font-mono"
+                    placeholder="0201582733"
+                    value={numCuenta}
+                    onChange={(e) => setNumCuenta(e.target.value)}
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="text-sm font-medium block mb-1">Nº Cuenta (opcional)</label>
-                <input className="w-full border rounded-lg px-3 py-2 font-mono" placeholder="0201582733" value={numCuenta} onChange={(e) => setNumCuenta(e.target.value)} />
-              </div>
+              {editing && (
+                <p className="text-xs text-gray-500">
+                  En edición no se permite cambiar <span className="font-mono">ID_SOCIEDAD</span> ni{" "}
+                  <span className="font-mono">ID_BANCO_COBRO</span>.
+                </p>
+              )}
             </div>
 
-            <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-              <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50/50">
+              <button
+                onClick={closeModal}
+                disabled={isSaving}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+              >
                 Cancelar
               </button>
+
               <button
                 onClick={handleGuardar}
                 disabled={isSaving}
-                className="px-4 py-2 bg-quality-dark text-white rounded-lg flex items-center gap-2 disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium bg-quality-dark text-white hover:bg-black rounded-lg transition-colors shadow-sm flex items-center gap-2 disabled:opacity-70"
               >
-                {isSaving && <Loader2 className="animate-spin" size={16} />} Guardar
+                {isSaving && <Loader2 className="animate-spin" size={16} />}
+                {isSaving ? "Guardando..." : editing ? "Guardar cambios" : "Guardar cuenta"}
               </button>
             </div>
           </div>

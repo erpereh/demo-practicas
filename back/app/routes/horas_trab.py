@@ -1,3 +1,17 @@
+"""
+Router de gestión de HORAS_TRAB.
+
+Responsabilidades:
+- Listado completo.
+- Filtros por empleado y proyecto.
+- Inserción manual de fichajes.
+
+Notas:
+- Validación básica de fecha.
+- Persistencia directa en MySQL.
+- No hay control de duplicidad aún (mejorable).
+"""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime

@@ -1,3 +1,17 @@
+"""
+Router de gestión de EMPLEADOS.
+
+Responsabilidades:
+- CRUD completo sobre la tabla EMPLEADOS.
+- Validación de:
+    * ID_EMPLEADO (PK)
+    * ID_EMPLEADO_TRACKER (único recomendado)
+
+Notas:
+- Se elimina físicamente (no soft delete).
+- Las validaciones previas evitan errores de integridad SQL.
+"""
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import select
@@ -8,8 +22,12 @@ from app.schemas.empleados import EmpleadoCreate, EmpleadoUpdate, EmpleadoOut
 
 router = APIRouter(prefix="/api/empleados", tags=["Empleados"])
 
+
 @router.get("/", response_model=list[EmpleadoOut])
 def listar_empleados(db: Session = Depends(get_db)):
+    """
+    Devuelve todos los empleados registrados.
+    """
     return db.execute(select(Empleado)).scalars().all()
 
 @router.post("/", response_model=EmpleadoOut, status_code=status.HTTP_201_CREATED)

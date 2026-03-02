@@ -10,7 +10,7 @@ router = APIRouter(
     tags=["Tarifas"]
 )
 
-# LISTAR TARIFAS (desde BBDD real)
+# ✅ LISTAR TARIFAS (desde BBDD real)
 @router.get("/tarifas")
 def listar_tarifas(db: Session = Depends(get_db)):
 
@@ -29,7 +29,7 @@ def listar_tarifas(db: Session = Depends(get_db)):
     ]
 
 
-# ASIGNAR TARIFA (INSERT real)
+# ✅ ASIGNAR TARIFA (INSERT real)
 @router.post("/tarifas")
 def asignar_tarifa(
     id_sociedad: str,
@@ -66,7 +66,7 @@ def asignar_tarifa(
     db.commit()
     db.refresh(nueva)
 
-    # No hay campo 'id', devolvemos los campos compuestos
+    # ✅ No hay campo 'id', devolvemos los campos compuestos
     return {
         "mensaje": "Tarifa asignada correctamente",
         "id_sociedad": nueva.id_sociedad,
