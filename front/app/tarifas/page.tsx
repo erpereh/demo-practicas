@@ -31,7 +31,7 @@ interface Proyecto {
     fec_inicio: string | null;
 }
 
-export default function TarifasPage() {
+export default function HistorialProyectos() { // Cambio de nombre del componente
     const [searchTerm, setSearchTerm] = useState("");
     const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -178,8 +178,8 @@ export default function TarifasPage() {
             {/* Cabecera */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                 <div>
-                    <h1 className="text-3xl font-bold text-quality-dark tracking-tight">Asignacion de Tarifas</h1>
-                    <p className="text-gray-500 mt-1">Define el precio por hora de cada empleado segun el proyecto.</p>
+                    <h1 className="text-3xl font-bold text-quality-dark tracking-tight">Historial de Proyectos</h1>
+                    <p className="text-gray-500 mt-1">Visualiza y gestiona las tarifas de cada empleado por proyecto.</p>
                 </div>
                 <button
                     onClick={() => setIsModalOpen(true)}
@@ -204,7 +204,7 @@ export default function TarifasPage() {
                 </div>
             </div>
 
-            {/* Tabla */}
+            {/* Tabla de tarifas */}
             <div className="bg-white border border-gray-200 rounded-b-xl overflow-hidden shadow-sm">
                 <table className="w-full text-left border-collapse">
                     <thead>
