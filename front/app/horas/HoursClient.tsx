@@ -51,54 +51,47 @@ export default function HoursClient() {
   const [mFecha, setMFecha] = useState("");
   const [mHoras, setMHoras] = useState<number>(0);
 
-  useEffect(() => {
+useEffect(() => {
+  async function fetchHoras() {
     setLoading(true);
 
-    const mock: TimeEntry[] = [
-      {
-        id: "t1",
-        fecha: "2026-02-01",
-        empleado: mockEmpleados[0],
-        proyecto: mockProyectos[0],
-        horas: 7.5,
-        origen: "EXCEL",
-        facturada: false,
-      },
-      {
-        id: "t2",
-        fecha: "2026-02-02",
-        empleado: mockEmpleados[1],
-        proyecto: mockProyectos[2],
-        horas: 4,
-        origen: "MANUAL",
-        facturada: true,
-      },
-      {
-        id: "t3",
-        fecha: "2026-02-03",
-        empleado: mockEmpleados[2],
-        proyecto: mockProyectos[0],
-        horas: 6,
-        origen: "EXCEL",
-        facturada: false,
-      },
-    ];
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/horas`
+      );
 
-    const filtered = mock.filter((r) => {
-      const text = `${r.empleado.nombre} ${r.proyecto.nombre}`.toLowerCase();
-      if (searchTerm && !text.includes(searchTerm.toLowerCase())) return false;
-      if (empleadoId && r.empleado.id !== empleadoId) return false;
-      if (proyectoId && r.proyecto.id !== proyectoId) return false;
-      if (desde && r.fecha < desde) return false;
-      if (hasta && r.fecha > hasta) return false;
-      return true;
-    });
+      if (!res.ok) {
+        throw new Error("Error al obtener horas");
+      }
 
-    setTimeout(() => {
-      setRows(filtered);
+      const data = await res.json();
+
+      const mapped: TimeEntry[] = data.map((item: any) => ({
+        id: `${item.id_empleado}_${item.fecha}`,
+        fecha: item.fecha,
+        empleado: {
+          id: item.id_empleado,
+          nombre: item.id_empleado,
+        },
+        proyecto: {
+          id: item.id_proyecto,
+          nombre: item.id_proyecto,
+        },
+        horas: item.horas_dia,
+        origen: item.origen ?? "MANUAL",
+        facturada: item.estado === "FACTURADA",
+      }));
+
+      setRows(mapped);
+    } catch (error) {
+      console.error(error);
+    } finally {
       setLoading(false);
-    }, 200);
-  }, [searchTerm, empleadoId, proyectoId, desde, hasta]);
+    }
+  }
+
+  fetchHoras();
+}, []);
 
   const totalHoras = useMemo(
     () => rows.reduce((acc, r) => acc + r.horas, 0),
