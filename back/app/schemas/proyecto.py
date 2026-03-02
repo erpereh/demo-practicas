@@ -2,6 +2,7 @@
 import re
 from datetime import date
 from decimal import Decimal
+from typing import Optional
 
 # Compatible con Pydantic v1 y v2
 try:
@@ -47,6 +48,15 @@ def _validate_precio(v: Decimal | float | None) -> Decimal | None:
         raise ValueError("PRECIO supera el límite permitido (15 dígitos, 2 decimales)")
     return d
 
+class ClienteEmbed(BaseModel):
+    id_cliente: str
+    n_cliente:  str
+
+    if V2:
+        model_config = {"from_attributes": True}
+    else:
+        class Config:
+            orm_mode = True
 
 # --- Schemas ---
 class ProyectoCreate(BaseModel):
@@ -250,6 +260,7 @@ class ProyectoOut(BaseModel):
     tipo_pago: str
     precio: Decimal | None = None
     fec_inicio: date
+    cliente: Optional[ClienteEmbed] = None
 
     if V2:
         model_config = {"from_attributes": True}

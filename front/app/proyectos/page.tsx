@@ -1,74 +1,79 @@
 "use client";
-import { 
-    useState, 
-    useEffect, 
-    useCallback 
+import {
+    useState,
+    useEffect,
+    useCallback
 } from "react";
-import { 
-    Search, 
-    Plus, 
-    Edit, 
-    Trash2, 
-    X, 
-    FolderKanban, 
-    Loader2, 
-    AlertCircle 
+import {
+    Search,
+    Plus,
+    Edit,
+    Trash2,
+    X,
+    FolderKanban,
+    Loader2,
+    AlertCircle
 } from "lucide-react";
 
-const API_BASE = "http://localhost:8000/api/proyectos";
+const API_BASE          = "http://localhost:8000/api/proyectos";
+const API_CLIENTES_BASE = "http://localhost:8000/api/clientes";
 
-// Tipos
-interface Proyecto {
-    id_proyecto: string;
-    id_sociedad: string;
+// ── Tipos ─────────────────────────────────────────────────────────────────────
+interface Cliente {
     id_cliente: string;
-    nombre_proyecto: string;
+    n_cliente:  string;
+}
+
+interface Proyecto {
+    id_proyecto:             string;
+    id_sociedad:             string;
+    id_cliente:              string;   // ID guardado en BD
+    nombre_proyecto:         string;
     codigo_proyecto_tracker: string;
-    tipo_pago: string;
-    precio: number | null;
-    fec_inicio: string | null;
+    tipo_pago:               string;
+    precio:                  number | null;
+    fec_inicio:              string | null;
+    cliente:                 Cliente | null; // objeto resuelto por el backend
 }
 
 interface ProyectoForm {
-    id_proyecto: string;
-    id_sociedad: string;
-    id_cliente: string;
-    nombre_proyecto: string;
+    id_proyecto:             string;
+    id_sociedad:             string;
+    id_cliente:              string;   // ID que se enviará al backend
+    nombre_proyecto:         string;
     codigo_proyecto_tracker: string;
-    tipo_pago: string;
-    precio: string;
-    fec_inicio: string;
+    tipo_pago:               string;
+    precio:                  string;
+    fec_inicio:              string;
 }
 
 const FORM_EMPTY: ProyectoForm = {
-    id_proyecto: "",
-    id_sociedad: "",
-    id_cliente: "",
-    nombre_proyecto: "",
+    id_proyecto:             "",
+    id_sociedad:             "",
+    id_cliente:              "",
+    nombre_proyecto:         "",
     codigo_proyecto_tracker: "",
-    tipo_pago: "abierto",
-    precio: "",
-    fec_inicio: "",
+    tipo_pago:               "abierto",
+    precio:                  "",
+    fec_inicio:              "",
 };
 
 export default function ProyectosPage() {
 
     const [proyectos, setProyectos] = useState<Proyecto[]>([]);
+    const [clientes,  setClientes]  = useState<Cliente[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [saving, setSaving] = useState(false);
+    const [loading,  setLoading]  = useState(true);
+    const [error,    setError]    = useState<string | null>(null);
+    const [saving,   setSaving]   = useState(false);
     const [apiError, setApiError] = useState<string | null>(null);
 
-    // Modal
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isModalOpen,     setIsModalOpen]     = useState(false);
     const [editingProyecto, setEditingProyecto] = useState<Proyecto | null>(null);
     const [form, setForm] = useState<ProyectoForm>(FORM_EMPTY);
-
-    // Confirmación eliminar
     const [deleteId, setDeleteId] = useState<string | null>(null);
 
-    // --- FETCH proyectos ---
+    // ── FETCH proyectos ────────────────────────────────────────────────────────
     const fetchProyectos = useCallback(async (q?: string) => {
         setLoading(true);
         setError(null);
@@ -77,8 +82,7 @@ export default function ProyectosPage() {
             if (q) params.set("q", q);
             const res = await fetch(`${API_BASE}/?${params.toString()}`);
             if (!res.ok) throw new Error(`Error ${res.status}`);
-            const data: Proyecto[] = await res.json();
-            setProyectos(data);
+            setProyectos(await res.json());
         } catch (e: any) {
             setError(e.message || "Error al cargar proyectos");
         } finally {
@@ -86,19 +90,26 @@ export default function ProyectosPage() {
         }
     }, []);
 
+    // ── FETCH clientes para el <select> ────────────────────────────────────────
+    const fetchClientes = useCallback(async () => {
+        try {
+            const res = await fetch(`${API_CLIENTES_BASE}/`);
+            if (!res.ok) return;
+            setClientes(await res.json());
+        } catch { /* no crítico */ }
+    }, []);
+
     useEffect(() => {
         fetchProyectos();
-    }, [fetchProyectos]);
+        fetchClientes();
+    }, [fetchProyectos, fetchClientes]);
 
-    // Búsqueda con debounce
     useEffect(() => {
-        const timer = setTimeout(() => {
-            fetchProyectos(searchTerm || undefined);
-        }, 300);
+        const timer = setTimeout(() => fetchProyectos(searchTerm || undefined), 300);
         return () => clearTimeout(timer);
     }, [searchTerm, fetchProyectos]);
 
-    // --- ABRIR MODAL CREAR ---
+    // ── MODAL CREAR ────────────────────────────────────────────────────────────
     const openCreate = () => {
         setEditingProyecto(null);
         setForm(FORM_EMPTY);
@@ -106,37 +117,36 @@ export default function ProyectosPage() {
         setIsModalOpen(true);
     };
 
-    // --- ABRIR MODAL EDITAR ---
+    // ── MODAL EDITAR ───────────────────────────────────────────────────────────
     const openEdit = (proyecto: Proyecto) => {
         setEditingProyecto(proyecto);
         setForm({
-            id_proyecto: proyecto.id_proyecto,
-            id_sociedad: proyecto.id_sociedad,
-            id_cliente: proyecto.id_cliente,
-            nombre_proyecto: proyecto.nombre_proyecto,
+            id_proyecto:             proyecto.id_proyecto,
+            id_sociedad:             proyecto.id_sociedad,
+            id_cliente:              proyecto.id_cliente,
+            nombre_proyecto:         proyecto.nombre_proyecto,
             codigo_proyecto_tracker: proyecto.codigo_proyecto_tracker,
-            tipo_pago: proyecto.tipo_pago,
-            precio: proyecto.precio !== null ? String(proyecto.precio) : "",
-            fec_inicio: proyecto.fec_inicio ?? "",
+            tipo_pago:               proyecto.tipo_pago,
+            precio:                  proyecto.precio !== null ? String(proyecto.precio) : "",
+            fec_inicio:              proyecto.fec_inicio ?? "",
         });
         setApiError(null);
         setIsModalOpen(true);
     };
 
-    // --- GUARDAR (crear o editar) ---
+    // ── GUARDAR ────────────────────────────────────────────────────────────────
     const handleSave = async () => {
         setSaving(true);
         setApiError(null);
         try {
             let res: Response;
             if (editingProyecto) {
-                // PUT - editar
                 const body: Record<string, any> = {};
-                if (form.nombre_proyecto) body.nombre_proyecto = form.nombre_proyecto;
+                if (form.nombre_proyecto)         body.nombre_proyecto         = form.nombre_proyecto;
                 if (form.codigo_proyecto_tracker) body.codigo_proyecto_tracker = form.codigo_proyecto_tracker;
-                if (form.tipo_pago) body.tipo_pago = form.tipo_pago;
-                if (form.precio !== "") body.precio = parseFloat(form.precio);
-                if (form.fec_inicio) body.fec_inicio = form.fec_inicio;
+                if (form.tipo_pago)               body.tipo_pago               = form.tipo_pago;
+                if (form.precio !== "")           body.precio                  = parseFloat(form.precio);
+                if (form.fec_inicio)              body.fec_inicio              = form.fec_inicio;
 
                 res = await fetch(`${API_BASE}/${editingProyecto.id_proyecto}`, {
                     method: "PUT",
@@ -144,17 +154,17 @@ export default function ProyectosPage() {
                     body: JSON.stringify(body),
                 });
             } else {
-                // POST - crear
+                // id_cliente contiene el ID seleccionado en el <select>
                 const body: Record<string, any> = {
-                    id_proyecto: form.id_proyecto,
-                    id_sociedad: form.id_sociedad,
-                    id_cliente: form.id_cliente,
-                    nombre_proyecto: form.nombre_proyecto,
+                    id_proyecto:             form.id_proyecto,
+                    id_sociedad:             form.id_sociedad,
+                    id_cliente:              form.id_cliente,
+                    nombre_proyecto:         form.nombre_proyecto,
                     codigo_proyecto_tracker: form.codigo_proyecto_tracker,
-                    tipo_pago: form.tipo_pago,
+                    tipo_pago:               form.tipo_pago,
                 };
-                if (form.precio !== "") body.precio = parseFloat(form.precio);
-                if (form.fec_inicio) body.fec_inicio = form.fec_inicio;
+                if (form.precio !== "") body.precio     = parseFloat(form.precio);
+                if (form.fec_inicio)    body.fec_inicio = form.fec_inicio;
 
                 res = await fetch(`${API_BASE}/`, {
                     method: "POST",
@@ -177,7 +187,7 @@ export default function ProyectosPage() {
         }
     };
 
-    // --- ELIMINAR ---
+    // ── ELIMINAR ───────────────────────────────────────────────────────────────
     const handleDelete = async (id_proyecto: string) => {
         try {
             const res = await fetch(`${API_BASE}/${id_proyecto}`, { method: "DELETE" });
@@ -192,9 +202,15 @@ export default function ProyectosPage() {
         }
     };
 
-    const updateForm = (field: keyof ProyectoForm, value: string) => {
+    const updateForm = (field: keyof ProyectoForm, value: string) =>
         setForm(prev => ({ ...prev, [field]: value }));
-    };
+
+    // Nombre a mostrar en la tabla: usa el objeto resuelto si existe, si no el ID
+    const nombreCliente = (p: Proyecto) => p.cliente?.n_cliente ?? p.id_cliente;
+
+    // Nombre a mostrar en el <select> del modal de edición
+    const labelClienteSeleccionado = (id: string) =>
+        clientes.find(c => c.id_cliente === id)?.n_cliente ?? id;
 
     return (
         <div className="p-10 max-w-7xl mx-auto relative">
@@ -205,13 +221,11 @@ export default function ProyectosPage() {
                     <h1 className="text-3xl font-bold text-quality-dark tracking-tight">Proyectos</h1>
                     <p className="text-gray-500 mt-1">Gestiona los proyectos activos, clientes asociados y condiciones de facturación.</p>
                 </div>
-
                 <button
                     onClick={openCreate}
                     className="bg-quality-red hover:bg-[#C20017] text-white px-5 py-2.5 rounded-lg font-medium transition-all shadow-md flex items-center gap-2"
                 >
-                    <Plus size={18} />
-                    Nuevo Proyecto
+                    <Plus size={18} /> Nuevo Proyecto
                 </button>
             </div>
 
@@ -224,7 +238,7 @@ export default function ProyectosPage() {
                         placeholder="Buscar por proyecto, ID o código tracker..."
                         className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-quality-red/20 focus:border-quality-red transition-all"
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={e => setSearchTerm(e.target.value)}
                     />
                 </div>
             </div>
@@ -256,7 +270,7 @@ export default function ProyectosPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {proyectos.map((proyecto) => (
+                            {proyectos.map(proyecto => (
                                 <tr key={proyecto.id_proyecto} className="hover:bg-gray-50/50 transition-colors group">
                                     <td className="px-6 py-4">
                                         <span className="font-mono text-xs bg-gray-50 text-gray-600 px-2 py-1 rounded border border-gray-200">
@@ -264,7 +278,8 @@ export default function ProyectosPage() {
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 font-bold text-quality-dark">{proyecto.nombre_proyecto}</td>
-                                    <td className="px-6 py-4 text-gray-600">{proyecto.id_cliente}</td>
+                                    {/* Muestra el nombre del cliente; el ID queda en BD */}
+                                    <td className="px-6 py-4 text-gray-600">{nombreCliente(proyecto)}</td>
                                     <td className="px-6 py-4">
                                         <span className="text-sm font-medium text-gray-700 bg-gray-100 px-3 py-1 rounded-full capitalize">
                                             {proyecto.tipo_pago}
@@ -277,16 +292,10 @@ export default function ProyectosPage() {
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button
-                                                onClick={() => openEdit(proyecto)}
-                                                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
-                                            >
+                                            <button onClick={() => openEdit(proyecto)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
                                                 <Edit size={16} />
                                             </button>
-                                            <button
-                                                onClick={() => setDeleteId(proyecto.id_proyecto)}
-                                                className="p-2 text-gray-400 hover:text-quality-red hover:bg-red-50 rounded-lg"
-                                            >
+                                            <button onClick={() => setDeleteId(proyecto.id_proyecto)} className="p-2 text-gray-400 hover:text-quality-red hover:bg-red-50 rounded-lg">
                                                 <Trash2 size={16} />
                                             </button>
                                         </div>
@@ -356,18 +365,40 @@ export default function ProyectosPage() {
                                 />
                             </div>
 
-                            {!editingProyecto && (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">ID Cliente *</label>
+                            {/* SELECT DE CLIENTE — guarda id_cliente, muestra n_cliente */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Cliente *</label>
+                                {clientes.length > 0 ? (
+                                    <select
+                                        value={form.id_cliente}
+                                        onChange={e => updateForm("id_cliente", e.target.value)}
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-quality-red/20 focus:border-quality-red outline-none bg-white"
+                                    >
+                                        <option value="">— Selecciona un cliente —</option>
+                                        {clientes.map(c => (
+                                            // value = ID (lo que se guarda), texto visible = nombre
+                                            <option key={c.id_cliente} value={c.id_cliente}>
+                                                {c.n_cliente}
+                                            </option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    // Fallback si la lista de clientes no cargó
                                     <input
                                         type="text"
                                         value={form.id_cliente}
                                         onChange={e => updateForm("id_cliente", e.target.value)}
                                         className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-quality-red/20 focus:border-quality-red outline-none"
-                                        placeholder="ABC-001"
+                                        placeholder="ID del cliente"
                                     />
-                                </div>
-                            )}
+                                )}
+                                {/* Al editar mostramos el nombre actual como referencia */}
+                                {editingProyecto && form.id_cliente && (
+                                    <p className="mt-1 text-xs text-gray-400">
+                                        Actualmente: <span className="font-medium text-gray-600">{labelClienteSeleccionado(form.id_cliente)}</span>
+                                    </p>
+                                )}
+                            </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
@@ -446,16 +477,10 @@ export default function ProyectosPage() {
                             Esta acción eliminará el proyecto <span className="font-mono font-semibold text-gray-700">{deleteId}</span> permanentemente.
                         </p>
                         <div className="flex justify-end gap-3">
-                            <button
-                                onClick={() => setDeleteId(null)}
-                                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
-                            >
+                            <button onClick={() => setDeleteId(null)} className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors">
                                 Cancelar
                             </button>
-                            <button
-                                onClick={() => handleDelete(deleteId)}
-                                className="px-4 py-2 text-sm font-medium bg-quality-red text-white hover:bg-[#C20017] rounded-lg transition-colors shadow-sm"
-                            >
+                            <button onClick={() => handleDelete(deleteId)} className="px-4 py-2 text-sm font-medium bg-quality-red text-white hover:bg-[#C20017] rounded-lg transition-colors shadow-sm">
                                 Eliminar
                             </button>
                         </div>
