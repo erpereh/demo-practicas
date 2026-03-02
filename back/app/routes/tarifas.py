@@ -21,7 +21,8 @@ from fastapi import APIRouter, Body
 from app.models.hist_proyecto import HistProyecto
 from datetime import datetime
 
-router = APIRouter()
+from app.models.hist_proyecto import HistProyecto
+from app.database import get_db
 
 
 # ============================================================
@@ -61,13 +62,14 @@ def listar_tarifas():
 
     return [
         {
-            "empleado": t.id_empleado,
-            "cliente": t.id_cliente,
-            "proyecto": t.id_proyecto,
-            "tarifa": t.tarifa,
-            "fecha_inicio": t.fec_inicio
+            "id_sociedad": r.id_sociedad,
+            "empleado": r.id_empleado,
+            "cliente": r.id_cliente,
+            "proyecto": r.id_proyecto,
+            "tarifa": float(r.tarifa),                  # Numeric → float
+            "fecha_inicio": r.fec_inicio.isoformat()   # Date → string ISO
         }
-        for t in tarifas
+        for r in registros
     ]
 
 
@@ -112,7 +114,9 @@ def asignar_tarifa(
         tarifa=round(tarifa, 2)
     )
 
-    tarifas.append(nueva)
+    db.add(nueva)
+    db.commit()
+    db.refresh(nueva)
 
     return {
         "mensaje": "Tarifa asignada correctamente",
