@@ -186,7 +186,7 @@ function Sidebar() {
                         children: [
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                 className: "text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 px-3",
-                                children: "Proyectos y Tarifas"
+                                children: "Proyectos e Historial"
                             }, void 0, false, {
                                 fileName: "[project]/app/components/Sidebar.tsx",
                                 lineNumber: 82,
@@ -233,7 +233,7 @@ function Sidebar() {
                                                     lineNumber: 94,
                                                     columnNumber: 33
                                                 }, this),
-                                                "Asignación Tarifas"
+                                                "Historial de Proyectos"
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/app/components/Sidebar.tsx",

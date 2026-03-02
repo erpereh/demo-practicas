@@ -80,7 +80,7 @@ export default function Sidebar() {
                 {/* SECCIÓN 2: PROYECTOS Y TARIFAS */}
                 <div>
                     <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 px-3">
-                        Proyectos y Tarifas
+                        Proyectos e Historial
                     </p>
                     <ul className="space-y-2">
                         <li>
@@ -92,7 +92,7 @@ export default function Sidebar() {
                         <li>
                             <Link href="/tarifas" className={getLinkStyle("/tarifas")}>
                                 <CircleDollarSign size={18} className={getIconStyle("/tarifas")} />
-                                Asignación Tarifas
+                                Historial de Proyectos
                             </Link>
                         </li>
                     </ul>
