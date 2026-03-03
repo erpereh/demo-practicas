@@ -1,17 +1,74 @@
+"""
+Modelo ORM: Factura
+
+Representa la tabla FACTURAS en la base de datos.
+
+Gestiona la información relativa a la facturación emitida a clientes,
+incluyendo datos fiscales, importes y referencias al cliente asociado.
+"""
+
 from sqlalchemy import Column, String, Date, Text, ForeignKey, Numeric
 from app.database import Base
 
+
 class Factura(Base):
-    __tablename__ = "FACTURAS" #Tabla FACTURAS del SQL:
+    """
+    Entidad Factura.
 
-    id_sociedad = Column("ID_SOCIEDAD", String(5), nullable=False, index=True) #Ej: 01
-    #id_cliente es una clave foránea con CLIENTES
-    id_cliente = Column("ID_CLIENTE", String(20), ForeignKey("CLIENTES.ID_CLIENTE"), nullable=False, index=True) #CYC
+    Almacena los datos económicos y fiscales de una factura emitida.
+    """
 
-    num_factura = Column("NUM_FACTURA", String(20), primary_key=True, index=True) #QS260001
-    fec_factura = Column("FEC_FACTURA", Date, nullable=False) #2026-01-31
+    __tablename__ = "FACTURAS"
 
-    concepto = Column("CONCEPTO", Text, nullable=False) #CYCPR00022 RRHH - Portal empleado...
+    # Identificador de la sociedad emisora
+    id_sociedad = Column(
+        "ID_SOCIEDAD",
+        String(5),
+        nullable=False,
+        index=True
+    )
 
-    base_imponible = Column("BASE_IMPONIBLE", Numeric(10, 2), nullable=False) #472.50
-    total = Column("TOTAL", Numeric(10, 2), nullable=False) #571.73
+    # Cliente asociado a la factura (clave foránea)
+    id_cliente = Column(
+        "ID_CLIENTE",
+        String(20),
+        ForeignKey("CLIENTES.ID_CLIENTE"),
+        nullable=False,
+        index=True
+    )
+
+    # Número único de factura (clave primaria)
+    num_factura = Column(
+        "NUM_FACTURA",
+        String(20),
+        primary_key=True,
+        index=True
+    )
+
+    # Fecha de emisión de la factura
+    fec_factura = Column(
+        "FEC_FACTURA",
+        Date,
+        nullable=False
+    )
+
+    # Concepto o descripción detallada
+    concepto = Column(
+        "CONCEPTO",
+        Text,
+        nullable=False
+    )
+
+    # Base imponible de la factura
+    base_imponible = Column(
+        "BASE_IMPONIBLE",
+        Numeric(10, 2),
+        nullable=False
+    )
+
+    # Importe total (incluyendo impuestos)
+    total = Column(
+        "TOTAL",
+        Numeric(10, 2),
+        nullable=False
+    )
