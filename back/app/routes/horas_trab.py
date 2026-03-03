@@ -27,8 +27,20 @@ router = APIRouter(prefix="/api", tags=["Horas"])
 
 @router.get("/horas")
 def listar_fichajes(db: Session = Depends(get_db)):
-    return db.query(HorasTrab).all()
+    registros = db.query(HorasTrab).all()
 
+    return [
+        {
+            "id_sociedad": r.id_sociedad,
+            "fecha": r.fecha.strftime("%Y-%m-%d"),
+            "id_empleado": r.id_empleado,
+            "id_cliente": r.id_cliente,
+            "id_proyecto": r.id_proyecto,
+            "horas_dia": float(r.horas_dia),
+            "desc_tarea": r.desc_tarea,
+        }
+        for r in registros
+    ]
 
 # ============================
 # LISTAR POR EMPLEADO
