@@ -241,7 +241,7 @@ export default function HistorialProyectos() { // Cambio de nombre del component
                                 const nombreProyecto = proyectoObj ? proyectoObj.nombre_proyecto : tarifa.proyecto;
 
                                 return (
-                                    <tr key={`${tarifa.id_sociedad}-${tarifa.empleado}-${tarifa.proyecto}`} className="hover:bg-gray-50/50 transition-colors group">
+                                    <tr key={`${tarifa.id_sociedad}-${tarifa.empleado}-${tarifa.proyecto}-${tarifa.fecha_inicio}`} className="hover:bg-gray-50/50 transition-colors group">
                                         <td className="px-6 py-4 font-bold text-quality-dark">{nombreEmpleado}</td>
                                         <td className="px-6 py-4 text-gray-600">{nombreProyecto}</td>
                                         <td className="px-6 py-4">
