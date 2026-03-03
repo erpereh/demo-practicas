@@ -17,6 +17,8 @@ type EmpleadoAPI = {
   nombre: string;
   apellidos: string;
   matricula?: string | null;
+  email?: string | null;      // añadido campo opcional email
+  telefono?: string | null;   // añadido campo opcional teléfono
 };
 
 const parseFastApiError = async (res: Response) => {
@@ -46,6 +48,8 @@ export default function EmpleadosPage() {
   const [nombre, setNombre] = useState("");
   const [apellidos, setApellidos] = useState("");
   const [matricula, setMatricula] = useState("");
+  const [email, setEmail] = useState("");       // añadido input email
+  const [telefono, setTelefono] = useState(""); // añadido input teléfono
 
   // errores
   const [erroresGlobal, setErroresGlobal] = useState<{ general?: string }>({});
@@ -54,6 +58,8 @@ export default function EmpleadosPage() {
     tracker?: string;
     nombre?: string;
     apellidos?: string;
+    email?: string;       // añadido error email
+    telefono?: string;    // añadido error teléfono
     general?: string;
   }>({});
 
@@ -103,6 +109,8 @@ export default function EmpleadosPage() {
     setNombre("");
     setApellidos("");
     setMatricula("");
+    setEmail("");      // inicializado
+    setTelefono("");   // inicializado
     setIsModalOpen(true);
   };
 
@@ -114,6 +122,8 @@ export default function EmpleadosPage() {
     setNombre(emp.nombre);
     setApellidos(emp.apellidos);
     setMatricula(emp.matricula || "");
+    setEmail(emp.email || "");       // asignado valor existente
+    setTelefono(emp.telefono || ""); // asignado valor existente
     setIsModalOpen(true);
   };
 
@@ -126,17 +136,44 @@ export default function EmpleadosPage() {
     setNombre("");
     setApellidos("");
     setMatricula("");
+    setEmail("");      // reiniciado
+    setTelefono("");   // reiniciado
   };
 
   // ---------- GUARDAR (CREAR / EDITAR) ----------
 
   const handleGuardarEmpleado = async () => {
     const nuevos: any = {};
-    if (!idEmpleado.trim())
+
+    // Validación DNI/NIE
+    const dniRegex = /^[0-9]{7,8}[A-Z]$/i;
+    if (!idEmpleado.trim()) {
       nuevos.id_empleado = "El ID (DNI/NIE) es obligatorio.";
+    } else if (!dniRegex.test(idEmpleado.trim())) {
+      nuevos.id_empleado = "Formato de DNI/NIE inválido.";
+    }
+
     if (!tracker.trim()) nuevos.tracker = "El tracker es obligatorio.";
+
+    // Validación nombre/apellidos
     if (!nombre.trim()) nuevos.nombre = "El nombre es obligatorio.";
     if (!apellidos.trim()) nuevos.apellidos = "Los apellidos son obligatorios.";
+
+    // Validación email
+    if (email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email.trim())) {
+        nuevos.email = "Formato de email inválido.";
+      }
+    }
+
+    // Validación teléfono (solo números)
+    if (telefono.trim()) {
+      const telefonoRegex = /^[0-9]+$/;
+      if (!telefonoRegex.test(telefono.trim())) {
+        nuevos.telefono = "El teléfono solo puede contener números.";
+      }
+    }
 
     if (Object.keys(nuevos).length) {
       setErroresModal(nuevos);
@@ -155,6 +192,8 @@ export default function EmpleadosPage() {
           nombre,
           apellidos,
           matricula: matricula.trim() || null,
+          email: email.trim() || null,       // enviado al backend
+          telefono: telefono.trim() || null, // enviado al backend
         };
 
         const res = await fetch(`${API_URL}/api/empleados/`, {
@@ -174,6 +213,8 @@ export default function EmpleadosPage() {
           nombre,
           apellidos,
           matricula: matricula.trim() || null,
+          email: email.trim() || null,       // enviado al backend
+          telefono: telefono.trim() || null, // enviado al backend
         };
 
         const res = await fetch(
@@ -220,7 +261,6 @@ export default function EmpleadosPage() {
   };
 
   // ---------- RENDER ----------
-
   return (
     <div className="p-10 max-w-7xl mx-auto relative">
       {/* CABECERA */}

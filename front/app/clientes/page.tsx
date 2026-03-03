@@ -53,7 +53,7 @@ export default function ClientesPage() {
   const [erroresModal, setErroresModal] = useState<{ general?: string }>({});
 
   // modo edición
-  const [editandoId, setEditandoId] = useState<string | null>(null); // id_cliente en edición
+  const [editandoId, setEditandoId] = useState<string | null>(null);
   const esEdicion = editandoId !== null;
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -124,8 +124,12 @@ export default function ClientesPage() {
   // 3) Guardar (crear / editar)
   // ======================
   const handleGuardar = async () => {
-    // validaciones básicas
-    if (!nombre.trim() || !cif.trim() || (!esEdicion && (!idCliente.trim() || !idSociedad.trim()))) {
+    // Validación obligatoria existente
+    if (
+      !nombre.trim() ||
+      !cif.trim() ||
+      (!esEdicion && (!idCliente.trim() || !idSociedad.trim()))
+    ) {
       setErroresModal({
         general:
           "Sociedad, ID Cliente, Razón Social y CIF/NIF son obligatorios.",
@@ -133,12 +137,51 @@ export default function ClientesPage() {
       return;
     }
 
+    // ============================
+    // NUEVA VALIDACIÓN 1:
+    // Nombre no puede estar vacío
+    // ============================
+    if (!nombre.trim()) {
+      setErroresModal({
+        general: "La Razón Social no puede estar vacía.",
+      });
+      return;
+    }
+
+    // ============================
+    // NUEVA VALIDACIÓN 2:
+    // CIF debe contener solo letras y números
+    // ============================
+    const cifRegex = /^[A-Za-z0-9]+$/;
+    if (!cifRegex.test(cif.trim())) {
+      setErroresModal({
+        general:
+          "El CIF/NIF debe contener únicamente letras y números.",
+      });
+      return;
+    }
+
+    // ============================
+    // NUEVA VALIDACIÓN 3:
+    // ID Cliente → 2 letras + 3 números
+    // Solo se valida en creación
+    // ============================
+    if (!esEdicion) {
+      const idClienteRegex = /^[A-Za-z]{2}[0-9]{3}$/;
+      if (!idClienteRegex.test(idCliente.trim())) {
+        setErroresModal({
+          general:
+            "El ID Cliente debe tener 2 letras seguidas de 3 números (Ej: AB123).",
+        });
+        return;
+      }
+    }
+
     try {
       setIsSaving(true);
       setErroresModal({});
 
       if (!esEdicion) {
-        // CREAR
         const payloadCreate = {
           id_sociedad: idSociedad.trim().toUpperCase(),
           id_cliente: idCliente.trim().toUpperCase(),
@@ -160,7 +203,6 @@ export default function ClientesPage() {
           return;
         }
       } else if (editandoId) {
-        // EDITAR
         const payloadUpdate = {
           n_cliente: nombre.trim(),
           cif: cif.trim().toUpperCase(),
@@ -184,7 +226,6 @@ export default function ClientesPage() {
         }
       }
 
-      // si llega aquí, OK
       cerrarModal();
       await cargarClientes();
     } catch {
@@ -195,7 +236,7 @@ export default function ClientesPage() {
   };
 
   // ======================
-  // 4) Archivar (borrar lógico)
+  // 4) Archivar
   // ======================
   const handleArchivar = async (id_cliente: string) => {
     if (!confirm(`¿Archivar (eliminar) el cliente ${id_cliente}?`)) return;
@@ -203,9 +244,7 @@ export default function ClientesPage() {
     try {
       const res = await fetch(
         `${API_URL}/api/clientes/${encodeURIComponent(id_cliente)}/archivar`,
-        {
-          method: "PATCH",
-        }
+        { method: "PATCH" }
       );
       if (!res.ok) {
         const msg = await parseFastApiError(res);
