@@ -1,90 +1,75 @@
 "use client";
-import { useEffect, useState } from "react";
-import {
-  Search,
-  Plus,
-  Trash2,
-  X,
-  Users,
-  Loader2,
-  AlertCircle,
-  Edit,
-} from "lucide-react";
+import { useState, useEffect } from "react";
 
-type FacturaAPI = {
+// Tipos de datos de la API
+interface Factura {
   id_sociedad: string;
   id_cliente: string;
   num_factura: string;
-  fec_factura: Date;
+  fec_factura: string;
   concepto: string;
   base_imponible: number;
   total: number;
-};
-
-async function parseFastApiError(res: Response) {
-  try {
-    const data = await res.json();
-    if (Array.isArray(data.detail)) {
-      return data.detail.map((d: any) => d.msg).join(" | ");
-    }
-    return data.detail || "Error";
-  } catch {
-    return "Error";
-  }
 }
 
-export default function FacturasPage() {
+interface LineaFactura {
+  empleado_dni: string;
+  empleado: string;
+  proyecto: string;
+  horas: number;
+  tarifa_hora: number;
+  subtotal: number;
+}
+
+interface PreviewFactura {
+  anio: number;
+  mes: number;
+  id_cliente: string;
+  total_horas: number;
+  total_importe: number;
+  lineas: LineaFactura[];
+  alertas: string[];
+}
+//------------------------
+
+export default function FacturacionPage() {
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-  const [facturas, setFacturas] = useState<FacturaAPI[]>([]);
+  // ======================
+  // Estados generales
+  // ======================
+  const [facturas, setFacturas] = useState<Factura[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-
-  // formulario
-  const [idSociedad, setIdSociedad] = useState("01");
-  const [idCliente, setIdCliente] = useState("");
-  const [numFactura, setNumFactura] = useState("");
-  const [fecFactura, setFecFactura] = useState<Date | null>(null);
-  const [concepto, setConcepto] = useState("");
-  const [baseImponible, setBaseImponible] = useState<number | null>(null);
-  const [total, setTotal] = useState<number | null>(null); 
-    
-  // errores
-  const [erroresGlobal, setErroresGlobal] = useState<{ general?: string }>({});
-  const [erroresModal, setErroresModal] = useState<{ 
-    id_sociedad?: string;
-    id_cliente?: string;
-    num_factura?: string;
-    fec_factura?: Date;
-    concepto?: Text;
-    base_imponible?: number;
-    total?: number;
-  }>({}); 
-
-  // modo edición
-  const [editandoId, setEditandoId] = useState<string | null>(null);
-  const esEdicion = editandoId !== null;
+  const [errores, setErrores] = useState<{ general?: string }>({});
 
   // ======================
-  // 1) Cargar facturas
+  // Estados del formulario
+  // ======================
+  const [mes, setMes] = useState<number | "">("");
+  const [anio, setAnio] = useState<number | "">("");
+  const [cliente, setCliente] = useState<string>("");
+
+  const [previewData, setPreviewData] = useState<PreviewFactura | null>(null);
+  const [generadaData, setGeneradaData] = useState<Factura | null>(null);
+
+
+  // ======================
+  // 1) Cargar facturas existentes
   // ======================
   const cargarFacturas = async () => {
     try {
       setIsLoading(true);
-      setErroresGlobal({});
-      const res = await fetch(`${API_URL}/api/facturas/`);
+      setErrores({});
+      const res = await fetch(`${API_URL}/api/facturas`);
       if (!res.ok) {
-        setErroresGlobal({ general: await parseFastApiError(res) });
+        setErrores({ general: "Error cargando facturas" });
         return;
       }
-      setFacturas(await res.json());
+      const data: Factura[] = await res.json();
+      setFacturas(data);
     } catch (e) {
-      setErroresGlobal({
-        general: "No se pudo conectar con el servidor (¿backend encendido?).",
-      });
+      setErrores({ general: "No se pudo conectar con el servidor." });
     } finally {
       setIsLoading(false);
     }
@@ -92,55 +77,232 @@ export default function FacturasPage() {
 
   useEffect(() => {
     cargarFacturas();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const facturasFiltradas = facturas.filter((f) => {
-    const full = `${f.id_cliente} ${f.num_factura} ${f.concepto}`.toLowerCase();
-    return (
-      full.includes(searchTerm.toLowerCase()) ||
-      f.num_factura.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  });
 
   // ======================
-  // 2) Abrir / cerrar modal
+  // 2) Preview de factura
   // ======================
-  const abrirModalNuevo = () => {
-    setIdSociedad("01");
-    setIdCliente("");
-    setNumFactura("");
-    setFecFactura(null);
-    setConcepto("");
-    setBaseImponible(null);
-    setTotal(null);
-    setIsModalOpen(true);
+  const previewFactura = async () => {
+    if (!mes || !anio || !cliente) return;
+    try {
+      setIsSaving(true);
+      const res = await fetch(`${API_URL}/api/factura/preview`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mes, anio, id_cliente: cliente }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setErrores({ general: data.detail || "Error en la previsualización" });
+        return;
+      }
+      const data: PreviewFactura = await res.json();
+      setPreviewData(data);
+      setGeneradaData(null);
+      setErrores({});
+    } catch (e) {
+      setErrores({ general: "No se pudo conectar con el servidor." });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const abrirModalEditar = (f: FacturaAPI) => {
-    setEditandoId(f.num_factura);
-    setErroresModal({});
 
-    setIdSociedad(f.id_sociedad);
-    setIdCliente(f.id_cliente);
-    setNumFactura(f.num_factura);
-    setFecFactura(f.fec_factura);
-    setConcepto(f.concepto);
-    setBaseImponible(f.base_imponible);
-    setIsModalOpen(true);
-  };
+  // ======================
+  // 3) Generar factura definitiva
+  // ======================
+  const generarFactura = async () => {
+    if (!mes || !anio || !cliente || !previewData) return;
+    try {
+      setIsSaving(true);
+      const res = await fetch(`${API_URL}/api/factura/generar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id_sociedad: "01",
+          mes,
+          anio,
+          id_cliente: cliente,
+          concepto: `Factura ${cliente} ${mes}/${anio}`,
+        }),
+      });
 
-  const cerrarModalFactura = () => {
-  setIsModalOpen(false);
-  setErroresModal({});
-  setEditandoId(null);
+      if (!res.ok) {
+        const data = await res.json();
+        setErrores({ general: data.detail || "Error generando factura" });
+        return;
+      }
 
-  setIdSociedad("");
-  setIdCliente("");
-  setNumFactura("");
-  setFecFactura(null);
-  setConcepto("");
-  setBaseImponible(null);
-  setTotal(null);
-};
+      const data: Factura = await res.json();
+      setGeneradaData(data);
+      // Actualizamos el histórico de facturas
+      cargarFacturas();
+    } catch (e) {
+      setErrores({ general: "No se pudo conectar con el servidor." });
+    } finally {
+      setIsSaving(false);
+    }
+  };  
+
+
+  // ======================
+  // 4) Filtrar facturas por búsqueda (opcional)
+  // ======================
+  const [searchTerm, setSearchTerm] = useState("");
+  const facturasFiltradas = facturas.filter((f) =>
+    `${f.id_cliente} ${f.num_factura} ${f.concepto}`
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase())
+  );  
+
+
+  /*
+  VISUAL DE LA PÁGINA
+  */
+  return (
+    <div className="p-8">
+      {/* HEADER */}
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-3xl font-bold">Facturación</h1>
+          <p className="text-gray-500">
+            Genera facturas automáticamente a partir de las horas validadas.
+          </p>
+        </div>
+
+        {/* Botón generar solo si hay preview cargada y no hay factura generada aún*/}
+        {previewData && !generadaData && (
+          <button
+            onClick={generarFactura}
+            className="bg-red-600 text-white px-5 py-2 rounded-lg shadow hover:bg-red-700"
+          >
+            + Generar Factura
+          </button>
+        )}
+      </div>
+
+      {/* CARD */}
+      <div className="bg-white rounded-xl shadow p-6">
+
+        <h2 className="text-lg font-semibold mb-4">
+          Selección de periodo
+        </h2>
+
+        <div className="flex gap-4 mb-6">
+
+          {/* MES */}
+          <select
+            value={mes}
+            onChange={(e) => setMes(Number(e.target.value))}
+            className="border p-2 rounded w-48"
+          >
+            <option value="">Seleccionar Mes</option>
+            {[
+              "Enero", "Febrero", "Marzo", "Abril",
+              "Mayo", "Junio", "Julio", "Agosto",
+              "Septiembre", "Octubre", "Noviembre", "Diciembre"
+            ].map((m, i) => (
+              <option key={i} value={i + 1}>
+                {m}
+              </option>
+            ))}
+          </select>
+
+          {/* AÑO */}
+          <select
+            value={anio}
+            onChange={(e) => setAnio(Number(e.target.value))}
+            className="border p-2 rounded w-40"
+          >
+            <option value="">Seleccionar Año</option>
+            {Array.from({ length: 21 }, (_, i) => 2010 + i).map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+
+          {/* CLIENTE */}
+          <select
+            value={cliente}
+            onChange={(e) => setCliente(e.target.value)}
+            className="border p-2 rounded w-56"
+          >
+            <option value="">Seleccionar Cliente</option>
+            <option value="CYC">CYC</option>
+            <option value="ATOS">ATOS</option>
+            <option value="META4">META4</option>
+          </select>
+
+          <button
+            onClick={previewFactura}
+            className="bg-gray-800 text-white px-4 rounded hover:bg-gray-900"
+          >
+            Calcular
+          </button>
+        </div>
+
+        {/* PREVIEW */}
+        {previewData && (
+          <div className="border-t pt-6">
+            <h3 className="font-semibold mb-4">Previsualización</h3>
+            
+            {previewData.alertas.length > 0 && (
+              <div className="mb-4 text-red-600">
+                {previewData.alertas.map((a, i) => (
+                  <p key={i}>⚠️ {a}</p>
+                ))}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <p><strong>Cliente:</strong> {previewData.id_cliente}</p>
+              <p><strong>Periodo:</strong> {previewData.mes}/{previewData.anio}</p>
+              <p><strong>Total Horas:</strong> {previewData.total_horas} h</p>
+              <p><strong>Total Importe:</strong> {previewData.total_importe.toFixed(2)} €</p>
+            </div>
+
+            {/* Tabla de líneas */}
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="border px-2 py-1">Empleado</th>
+                    <th className="border px-2 py-1">Proyecto</th>
+                    <th className="border px-2 py-1">Horas</th>
+                    <th className="border px-2 py-1">Tarifa €/h</th>
+                    <th className="border px-2 py-1">Subtotal €</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {previewData.lineas.map((l, i) => (
+                    <tr key={i}>
+                      <td className="border px-2 py-1">{l.empleado}</td>
+                      <td className="border px-2 py-1">{l.proyecto}</td>
+                      <td className="border px-2 py-1">{l.horas}</td>
+                      <td className="border px-2 py-1">{l.tarifa_hora.toFixed(2)}</td>
+                      <td className="border px-2 py-1">{l.subtotal.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Total */}
+            <div className="mt-6 text-xl font-bold">
+              Total Factura: {previewData.total_importe.toFixed(2)} €
+            </div>
+            
+            {/* Confirmación de factura generada */}
+            {generadaData && (
+              <div className="mt-4 text-green-600 font-semibold">
+                ✅ Factura generada correctamente
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
