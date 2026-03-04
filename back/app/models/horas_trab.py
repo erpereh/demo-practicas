@@ -18,7 +18,7 @@ class HorasTrab(Base):
     Registra el detalle de horas imputadas por empleado y día.
     """
 
-    __tablename__ = "horas_trab"
+    __tablename__ = "HORAS_TRAB"
 
     # Identificador único del registro
     id = Column(Integer, primary_key=True, index=True)

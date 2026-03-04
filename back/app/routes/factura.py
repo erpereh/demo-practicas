@@ -33,6 +33,7 @@ from app.database import get_db
 
 #Importa modelos necesarios
 from app.models.empleado import Empleado
+from app.models.cliente import Cliente
 from app.models.hist_proyecto import HistProyecto
 from app.models.horas_trab import HorasTrab
 
@@ -206,7 +207,11 @@ def _preview_calculo(anio: int, mes: int, id_cliente: str, db: Session):
         "alertas": alertas
     }
 
-
+#(GET/clientes) LISTAR CLIENTES
+@router.get("/clientes")
+def obtener_clientes(db: Session = Depends(get_db)):
+    clientes = db.query(Cliente).all()
+    return clientes
 
 
 # PASO 2: PREVISUALIZACIÓN (BORRADOR, NO GUARDA)
