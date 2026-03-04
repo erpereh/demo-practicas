@@ -1,4 +1,7 @@
 "use client";
+
+// ------------- IMPORTS -------------
+// Hooks de React + iconos Lucide para la UI
 import { useEffect, useMemo, useState } from "react";
 import {
   Search,
@@ -11,6 +14,8 @@ import {
   Edit,
 } from "lucide-react";
 
+// ------------- TIPO DE DATOS (DTO) -------------
+// Tipado del objeto Banco tal y como lo devuelve el backend (/api/bancos/)
 type BancoAPI = {
   id_sociedad: string;
   id_banco_cobro: string;
@@ -19,10 +24,16 @@ type BancoAPI = {
   codigo_iban?: string | null;
 };
 
+// ------------- PARSEO DE ERRORES FASTAPI -------------
+// Convierte la respuesta de error de FastAPI en un mensaje legible:
+// - Si detail es un array (errores de validación por campo), concatena los msg.
+// - Si detail es texto, lo devuelve.
+// - Si no se puede parsear, devuelve "Error {status}".
 const parseFastApiError = async (res: Response) => {
   try {
     const data = await res.json();
-    if (Array.isArray(data.detail)) return data.detail.map((d: any) => d.msg).join(" | ");
+    if (Array.isArray(data.detail))
+      return data.detail.map((d: any) => d.msg).join(" | ");
     return data.detail || `Error ${res.status}`;
   } catch {
     return `Error ${res.status}`;
@@ -30,27 +41,51 @@ const parseFastApiError = async (res: Response) => {
 };
 
 export default function BancosPage() {
+  // ------------- CONFIG API -------------
+  // URL base del backend (configurable con NEXT_PUBLIC_API_URL o por defecto 127.0.0.1:8000)
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
+  // ------------- ESTADO UI (BÚSQUEDA Y MODAL) -------------
+  // searchTerm: texto del input de búsqueda
+  // isModalOpen: controla si está abierto el modal de crear/editar
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // ------------- ESTADO DATOS (LISTADO) -------------
+  // bancos: lista de cuentas bancarias desde el backend
+  // isLoading: loading del GET inicial
+  // isSaving: loading del POST/PUT
   const [bancos, setBancos] = useState<BancoAPI[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Modo edición
+  // ------------- MODO EDICIÓN -------------
+  // editing: si tiene un banco, el modal está en modo edición
+  // si es null, el modal está en modo creación
   const [editing, setEditing] = useState<BancoAPI | null>(null);
 
-  // Formulario (tabla real)
+  // ------------- ESTADO FORMULARIO (MODAL) -------------
+  // Campos alineados con la tabla real BANCOS:
+  // - idSociedad -> ID_SOCIEDAD
+  // - idBancoCobro -> ID_BANCO_COBRO
+  // - nombreBanco -> N_BANCO_COBRO
+  // - numCuenta -> NUM_CUENTA
+  // - codigoIban -> CODIGO_IBAN
   const [idSociedad, setIdSociedad] = useState("01");
   const [idBancoCobro, setIdBancoCobro] = useState("");
   const [nombreBanco, setNombreBanco] = useState("");
   const [numCuenta, setNumCuenta] = useState("");
   const [codigoIban, setCodigoIban] = useState("");
 
+  // ------------- ESTADO ERRORES -------------
+  // errores.general se muestra tanto en la página como dentro del modal
   const [errores, setErrores] = useState<{ general?: string }>({});
 
+  // ======================
+  // ------------- HELPERS DE FORMULARIO -------------
+  // ======================
+
+  // Resetea los campos del formulario a valores por defecto
   const resetForm = () => {
     setIdSociedad("01");
     setIdBancoCobro("");
@@ -59,6 +94,11 @@ export default function BancosPage() {
     setCodigoIban("");
   };
 
+  // Abre modal en modo creación:
+  // - limpia modo edición
+  // - resetea formulario
+  // - limpia errores
+  // - abre modal
   const openCreate = () => {
     setEditing(null);
     resetForm();
@@ -66,6 +106,10 @@ export default function BancosPage() {
     setIsModalOpen(true);
   };
 
+  // Abre modal en modo edición:
+  // - guarda el banco a editar en editing
+  // - precarga el formulario con sus datos
+  // - abre modal
   const openEdit = (b: BancoAPI) => {
     setEditing(b);
     setErrores({});
@@ -77,6 +121,11 @@ export default function BancosPage() {
     setIsModalOpen(true);
   };
 
+  // Cierra el modal:
+  // - cierra ventana
+  // - limpia modo edición
+  // - limpia errores
+  // - resetea formulario
   const closeModal = () => {
     setIsModalOpen(false);
     setEditing(null);
@@ -84,6 +133,15 @@ export default function BancosPage() {
     resetForm();
   };
 
+  // ======================
+  // ------------- (1) CARGAR BANCOS -------------
+  // ======================
+  // GET /api/bancos/:
+  // - activa loading
+  // - limpia errores
+  // - si OK guarda lista en state
+  // - si KO muestra error
+  // - desactiva loading al final
   const cargarBancos = async () => {
     try {
       setIsLoading(true);
@@ -104,11 +162,16 @@ export default function BancosPage() {
     }
   };
 
+  // ------------- EFECTO INICIAL -------------
+  // Carga el listado al entrar en la página
   useEffect(() => {
     cargarBancos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ------------- FILTRADO MEMOIZADO -------------
+  // Filtra por entidad, IBAN, nº cuenta, id_banco y sociedad.
+  // useMemo evita recalcular el filtro si no cambia bancos o searchTerm.
   const bancosFiltrados = useMemo(() => {
     const t = searchTerm.toLowerCase();
     return bancos.filter((b) => {
@@ -122,11 +185,22 @@ export default function BancosPage() {
     });
   }, [bancos, searchTerm]);
 
+  // ======================
+  // ------------- (2) GUARDAR (CREAR / EDITAR) -------------
+  // ======================
+  // - En creación valida sociedad + id banco + entidad.
+  // - En edición valida sólo entidad (según tu schema update).
+  // - Si creación -> POST /api/bancos/
+  // - Si edición -> PUT /api/bancos/{id_banco_cobro}
+  // - Si OK -> cierra modal y recarga listado
+  // - Si KO -> muestra error en errores.general
   const handleGuardar = async () => {
     // CREATE
     if (!editing) {
       if (!idSociedad.trim() || !idBancoCobro.trim() || !nombreBanco.trim()) {
-        setErrores({ general: "Sociedad, ID Banco y Entidad bancaria son obligatorios." });
+        setErrores({
+          general: "Sociedad, ID Banco y Entidad bancaria son obligatorios.",
+        });
         return;
       }
     } else {
@@ -142,6 +216,8 @@ export default function BancosPage() {
       setErrores({});
 
       if (!editing) {
+        // ------------- CREAR (POST) -------------
+        // Normaliza mayúsculas y convierte opcionales vacíos a null
         const payload = {
           id_sociedad: idSociedad.trim().toUpperCase(),
           id_banco_cobro: idBancoCobro.trim().toUpperCase(),
@@ -161,45 +237,60 @@ export default function BancosPage() {
           return;
         }
 
+        // Si OK: cierra modal y recarga listado
         closeModal();
         await cargarBancos();
         return;
       }
 
-      // UPDATE
+      // ------------- EDITAR (PUT) -------------
+      // Según el schema BancoUpdate: solo n_banco_cobro, num_cuenta, codigo_iban
       const updatePayload = {
         n_banco_cobro: nombreBanco.trim(),
         num_cuenta: numCuenta.trim() || null,
         codigo_iban: codigoIban.trim() || null,
       };
 
-      const res = await fetch(`${API_URL}/api/bancos/${encodeURIComponent(editing.id_banco_cobro)}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatePayload),
-      });
+      const res = await fetch(
+        `${API_URL}/api/bancos/${encodeURIComponent(editing.id_banco_cobro)}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updatePayload),
+        }
+      );
 
       if (!res.ok) {
         setErrores({ general: await parseFastApiError(res) });
         return;
       }
 
+      // Si OK: cierra modal y recarga listado
       closeModal();
       await cargarBancos();
     } catch (e) {
       console.error(e);
       setErrores({ general: "Error de conexión" });
     } finally {
+      // Apaga el loading del botón de guardar
       setIsSaving(false);
     }
   };
 
+  // ======================
+  // ------------- (3) ARCHIVAR -------------
+  // ======================
+  // Archiva/elimina una cuenta:
+  // - pide confirmación
+  // - PATCH /api/bancos/{id}/archivar
+  // - si OK recarga listado
   const handleArchivar = async (id_banco_cobro: string) => {
     if (!confirm(`¿Archivar (eliminar) la cuenta ${id_banco_cobro}?`)) return;
 
-    const res = await fetch(`${API_URL}/api/bancos/${encodeURIComponent(id_banco_cobro)}/archivar`, {
-      method: "PATCH",
-    });
+    const res = await fetch(
+      `${API_URL}/api/bancos/${encodeURIComponent(id_banco_cobro)}/archivar`,
+      { method: "PATCH" }
+    );
 
     if (!res.ok) {
       alert(await parseFastApiError(res));
@@ -208,12 +299,23 @@ export default function BancosPage() {
     await cargarBancos();
   };
 
+  // ======================
+  // ------------- RENDER -------------
+  // ======================
+  // UI principal:
+  // - cabecera + botón añadir cuenta
+  // - error general
+  // - buscador
+  // - tabla con acciones en hover (editar/archivar)
+  // - modal crear/editar con formulario y error dentro
   return (
     <div className="p-10 max-w-7xl mx-auto relative">
       {/* CABECERA */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-quality-dark tracking-tight">Cuentas Bancarias</h1>
+          <h1 className="text-3xl font-bold text-quality-dark tracking-tight">
+            Cuentas Bancarias
+          </h1>
           <p className="text-gray-500 mt-1">Gestión de cuentas de cobro e IBAN.</p>
         </div>
 
@@ -236,7 +338,10 @@ export default function BancosPage() {
       {/* BÚSQUEDA */}
       <div className="bg-white p-4 rounded-t-xl border border-gray-200 border-b-0 flex items-center gap-3">
         <div className="relative w-full max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            size={18}
+          />
           <input
             type="text"
             placeholder="Buscar banco, IBAN, cuenta o ID..."
@@ -279,7 +384,10 @@ export default function BancosPage() {
               </tr>
             ) : (
               bancosFiltrados.map((b) => (
-                <tr key={b.id_banco_cobro} className="hover:bg-gray-50/50 transition-colors group">
+                <tr
+                  key={b.id_banco_cobro}
+                  className="hover:bg-gray-50/50 transition-colors group"
+                >
                   <td className="px-6 py-4">
                     <p className="font-bold text-quality-dark flex items-center gap-2">
                       <Landmark size={16} className="text-gray-400" />
@@ -287,11 +395,18 @@ export default function BancosPage() {
                     </p>
                   </td>
 
-                  <td className="px-6 py-4 font-mono text-sm text-gray-700">{b.codigo_iban || "-"}</td>
-                  <td className="px-6 py-4 font-mono text-sm text-gray-700">{b.num_cuenta || "-"}</td>
+                  <td className="px-6 py-4 font-mono text-sm text-gray-700">
+                    {b.codigo_iban || "-"}
+                  </td>
+                  <td className="px-6 py-4 font-mono text-sm text-gray-700">
+                    {b.num_cuenta || "-"}
+                  </td>
                   <td className="px-6 py-4 text-gray-600">{b.id_sociedad}</td>
-                  <td className="px-6 py-4 font-mono text-sm text-gray-700">{b.id_banco_cobro}</td>
+                  <td className="px-6 py-4 font-mono text-sm text-gray-700">
+                    {b.id_banco_cobro}
+                  </td>
 
+                  {/* Acciones ocultas hasta hover de fila (group-hover) */}
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
@@ -336,6 +451,7 @@ export default function BancosPage() {
             </div>
 
             <div className="p-6 space-y-4">
+              {/* Error dentro del modal */}
               {errores.general && (
                 <div className="bg-red-50 border-l-4 border-quality-red p-3 rounded-r-md flex items-start gap-3">
                   <AlertCircle className="text-quality-red shrink-0 mt-0.5" size={18} />
@@ -343,9 +459,12 @@ export default function BancosPage() {
                 </div>
               )}
 
+              {/* Sociedad + ID Banco (bloqueados en edición) */}
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Sociedad</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Sociedad
+                  </label>
                   <input
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none"
                     value={idSociedad}
@@ -356,7 +475,9 @@ export default function BancosPage() {
                 </div>
 
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">ID Banco Cobro</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    ID Banco Cobro
+                  </label>
                   <input
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none font-mono"
                     placeholder="001"
@@ -368,8 +489,11 @@ export default function BancosPage() {
                 </div>
               </div>
 
+              {/* Entidad bancaria */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Entidad Bancaria</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Entidad Bancaria
+                </label>
                 <input
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none"
                   placeholder="Banco Bilbao Vizcaya Argentaria"
@@ -378,9 +502,12 @@ export default function BancosPage() {
                 />
               </div>
 
+              {/* IBAN + Nº cuenta */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">IBAN (opcional)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    IBAN (opcional)
+                  </label>
                   <input
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none font-mono"
                     placeholder="ES8601822737190201582733"
@@ -390,7 +517,9 @@ export default function BancosPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nº Cuenta (opcional)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nº Cuenta (opcional)
+                  </label>
                   <input
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none font-mono"
                     placeholder="0201582733"
@@ -400,14 +529,17 @@ export default function BancosPage() {
                 </div>
               </div>
 
+              {/* Aviso de campos bloqueados en edición */}
               {editing && (
                 <p className="text-xs text-gray-500">
-                  En edición no se permite cambiar <span className="font-mono">ID_SOCIEDAD</span> ni{" "}
+                  En edición no se permite cambiar{" "}
+                  <span className="font-mono">ID_SOCIEDAD</span> ni{" "}
                   <span className="font-mono">ID_BANCO_COBRO</span>.
                 </p>
               )}
             </div>
 
+            {/* Botonera */}
             <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50/50">
               <button
                 onClick={closeModal}

@@ -1,4 +1,7 @@
 "use client";
+
+// ------------- IMPORTS -------------
+// Hooks de React para estado y ciclo de vida + iconos Lucide para la UI
 import { useState, useEffect } from "react";
 import {
   Search,
@@ -11,6 +14,8 @@ import {
   Edit,
 } from "lucide-react";
 
+// ------------- TIPO DE DATOS (DTO) -------------
+// Tipado del objeto Cliente tal y como lo devuelve el backend (/api/clientes/)
 type ClienteAPI = {
   id_sociedad: string;
   id_cliente: string;
@@ -20,6 +25,11 @@ type ClienteAPI = {
   direccion?: string | null;
 };
 
+// ------------- PARSEO DE ERRORES FASTAPI -------------
+// Convierte la respuesta de error del backend (FastAPI) en un mensaje legible.
+// - Si FastAPI devuelve errores por campo (detail como array), concatena los msg.
+// - Si devuelve un string en detail, lo usa.
+// - Si no se puede parsear, devuelve "Error".
 async function parseFastApiError(res: Response) {
   try {
     const data = await res.json();
@@ -33,14 +43,28 @@ async function parseFastApiError(res: Response) {
 }
 
 export default function ClientesPage() {
+  // ------------- ESTADO UI (BÚSQUEDA Y MODAL) -------------
+  // searchTerm: lo que escribe el usuario en el input de búsqueda
+  // isModalOpen: controla si está abierto el modal de crear/editar
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // ------------- ESTADO DATOS (LISTADO) -------------
+  // clientes: lista que viene del backend
+  // isLoading: loading del GET inicial
+  // isSaving: loading del POST/PUT
   const [clientes, setClientes] = useState<ClienteAPI[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  // --- FORM / MODAL ---
+  // ------------- ESTADO FORMULARIO (MODAL) -------------
+  // Campos del formulario alineados con la tabla CLIENTES:
+  // - idSociedad -> ID_SOCIEDAD
+  // - idCliente -> ID_CLIENTE
+  // - nombre -> N_CLIENTE
+  // - cif -> CIF
+  // - contacto -> PERSONA_CONTACTO
+  // - direccion -> DIRECCION
   const [idSociedad, setIdSociedad] = useState("01");
   const [idCliente, setIdCliente] = useState("");
   const [nombre, setNombre] = useState(""); // n_cliente
@@ -48,19 +72,31 @@ export default function ClientesPage() {
   const [contacto, setContacto] = useState(""); // persona_contacto
   const [direccion, setDireccion] = useState("");
 
-  // errores
+  // ------------- ESTADO ERRORES -------------
+  // erroresGlobal: errores de carga/listado (se muestran fuera del modal)
+  // erroresModal: errores del formulario (se muestran dentro del modal)
   const [erroresGlobal, setErroresGlobal] = useState<{ general?: string }>({});
   const [erroresModal, setErroresModal] = useState<{ general?: string }>({});
 
-  // modo edición
+  // ------------- MODO EDICIÓN -------------
+  // editandoId: si tiene valor, estamos editando ese ID_CLIENTE
+  // esEdicion: booleano derivado para simplificar condiciones
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const esEdicion = editandoId !== null;
 
+  // ------------- CONFIG API -------------
+  // URL base del backend (configurable con NEXT_PUBLIC_API_URL o por defecto localhost:8000)
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
   // ======================
-  // 1) Cargar clientes
+  // ------------- (1) CARGAR CLIENTES -------------
   // ======================
+  // Llama al backend (GET /api/clientes/) y rellena la tabla:
+  // - activa loading
+  // - limpia erroresGlobal
+  // - si OK: guarda la lista en state
+  // - si KO: muestra mensaje en erroresGlobal
+  // - al final desactiva loading
   const cargarClientes = async () => {
     try {
       setIsLoading(true);
@@ -76,11 +112,15 @@ export default function ClientesPage() {
     }
   };
 
+  // ------------- EFECTO INICIAL -------------
+  // Ejecuta cargarClientes al entrar en la página (montaje del componente)
   useEffect(() => {
     cargarClientes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ------------- FILTRADO EN FRONT -------------
+  // Filtra por nombre (n_cliente) o cif usando el searchTerm
   const clientesFiltrados = clientes.filter(
     (cli) =>
       cli.n_cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -88,8 +128,14 @@ export default function ClientesPage() {
   );
 
   // ======================
-  // 2) Abrir / cerrar modal
+  // ------------- (2) ABRIR / CERRAR MODAL -------------
   // ======================
+
+  // Abre el modal en modo "Nuevo":
+  // - desactiva edición
+  // - limpia errores del modal
+  // - resetea el formulario con valores por defecto
+  // - abre el modal
   const abrirModalNuevo = () => {
     setEditandoId(null);
     setErroresModal({});
@@ -102,6 +148,10 @@ export default function ClientesPage() {
     setIsModalOpen(true);
   };
 
+  // Abre el modal en modo "Editar":
+  // - guarda el id_cliente que se va a editar
+  // - precarga el formulario con los datos del cliente seleccionado
+  // - abre el modal
   const abrirModalEditar = (c: ClienteAPI) => {
     setEditandoId(c.id_cliente);
     setErroresModal({});
@@ -114,6 +164,10 @@ export default function ClientesPage() {
     setIsModalOpen(true);
   };
 
+  // Cierra el modal:
+  // - cierra ventana
+  // - limpia errores del modal
+  // - resetea estado de edición
   const cerrarModal = () => {
     setIsModalOpen(false);
     setErroresModal({});
@@ -121,10 +175,19 @@ export default function ClientesPage() {
   };
 
   // ======================
-  // 3) Guardar (crear / editar)
+  // ------------- (3) GUARDAR (CREAR / EDITAR) -------------
   // ======================
+  // Lógica de guardado del modal:
+  // - valida campos obligatorios
+  // - valida reglas extra de formato (CIF alfanumérico, ID Cliente patrón en creación)
+  // - si es creación -> POST
+  // - si es edición -> PUT
+  // - si OK -> cierra modal y recarga listado
+  // - si KO -> muestra error dentro del modal
   const handleGuardar = async () => {
-    // Validación obligatoria existente
+    // Validación obligatoria existente:
+    // - nombre y cif siempre obligatorios
+    // - idSociedad e idCliente obligatorios solo en creación (no en edición)
     if (
       !nombre.trim() ||
       !cif.trim() ||
@@ -139,7 +202,7 @@ export default function ClientesPage() {
 
     // ============================
     // NUEVA VALIDACIÓN 1:
-    // Nombre no puede estar vacío
+    // Razón Social no puede estar vacía
     // ============================
     if (!nombre.trim()) {
       setErroresModal({
@@ -150,13 +213,12 @@ export default function ClientesPage() {
 
     // ============================
     // NUEVA VALIDACIÓN 2:
-    // CIF debe contener solo letras y números
+    // CIF debe contener solo letras y números (validación básica frontend)
     // ============================
     const cifRegex = /^[A-Za-z0-9]+$/;
     if (!cifRegex.test(cif.trim())) {
       setErroresModal({
-        general:
-          "El CIF/NIF debe contener únicamente letras y números.",
+        general: "El CIF/NIF debe contener únicamente letras y números.",
       });
       return;
     }
@@ -164,7 +226,7 @@ export default function ClientesPage() {
     // ============================
     // NUEVA VALIDACIÓN 3:
     // ID Cliente → 2 letras + 3 números
-    // Solo se valida en creación
+    // Solo se valida en creación (en edición el ID va bloqueado)
     // ============================
     if (!esEdicion) {
       const idClienteRegex = /^[A-Za-z]{2}[0-9]{3}$/;
@@ -178,10 +240,14 @@ export default function ClientesPage() {
     }
 
     try {
+      // Activa loading del botón y limpia errores del modal
       setIsSaving(true);
       setErroresModal({});
 
       if (!esEdicion) {
+        // ------------- CREAR (POST) -------------
+        // Construye payload alineado con el schema del backend:
+        // normaliza mayúsculas y convierte campos opcionales vacíos a null
         const payloadCreate = {
           id_sociedad: idSociedad.trim().toUpperCase(),
           id_cliente: idCliente.trim().toUpperCase(),
@@ -191,18 +257,22 @@ export default function ClientesPage() {
           direccion: direccion.trim() || null,
         };
 
+        // Llama al backend para crear (POST /api/clientes/)
         const res = await fetch(`${API_URL}/api/clientes/`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payloadCreate),
         });
 
+        // Si falla, muestra el error dentro del modal
         if (!res.ok) {
           const msg = await parseFastApiError(res);
           setErroresModal({ general: msg });
           return;
         }
       } else if (editandoId) {
+        // ------------- EDITAR (PUT) -------------
+        // Construye payload de actualización: solo campos editables
         const payloadUpdate = {
           n_cliente: nombre.trim(),
           cif: cif.trim().toUpperCase(),
@@ -210,6 +280,7 @@ export default function ClientesPage() {
           direccion: direccion.trim() || null,
         };
 
+        // Llama al backend para editar (PUT /api/clientes/{id})
         const res = await fetch(
           `${API_URL}/api/clientes/${encodeURIComponent(editandoId)}`,
           {
@@ -219,6 +290,7 @@ export default function ClientesPage() {
           }
         );
 
+        // Si falla, muestra el error dentro del modal
         if (!res.ok) {
           const msg = await parseFastApiError(res);
           setErroresModal({ general: msg });
@@ -226,18 +298,27 @@ export default function ClientesPage() {
         }
       }
 
+      // Si todo OK:
+      // - cierra modal
+      // - recarga listado desde BBDD para reflejar cambios
       cerrarModal();
       await cargarClientes();
     } catch {
+      // Error de red/servidor no accesible
       setErroresModal({ general: "Error de conexión con el servidor" });
     } finally {
+      // Desactiva loading del botón de guardar
       setIsSaving(false);
     }
   };
 
   // ======================
-  // 4) Archivar
+  // ------------- (4) ARCHIVAR -------------
   // ======================
+  // Archiva/elimina un cliente:
+  // - confirma con el usuario
+  // - llama al backend (PATCH /api/clientes/{id}/archivar)
+  // - si OK recarga listado
   const handleArchivar = async (id_cliente: string) => {
     if (!confirm(`¿Archivar (eliminar) el cliente ${id_cliente}?`)) return;
 
@@ -258,10 +339,17 @@ export default function ClientesPage() {
   };
 
   // ======================
-  // RENDER
+  // ------------- RENDER -------------
   // ======================
+  // UI principal:
+  // - cabecera + botón nuevo
+  // - error global (si falla la carga del listado)
+  // - buscador
+  // - tabla con acciones (editar/borrar) en hover
+  // - modal de crear/editar con error dentro
   return (
     <div className="p-10 max-w-7xl mx-auto relative">
+      {/* ------------- CABECERA ------------- */}
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-3xl font-bold text-quality-dark">Clientes</h1>
@@ -275,12 +363,14 @@ export default function ClientesPage() {
         </button>
       </div>
 
+      {/* ------------- ERROR GLOBAL (LISTADO) ------------- */}
       {erroresGlobal.general && (
         <div className="bg-red-50 text-red-800 p-3 rounded mb-4 flex gap-2">
           <AlertCircle size={18} /> {erroresGlobal.general}
         </div>
       )}
 
+      {/* ------------- BUSCADOR ------------- */}
       <div className="bg-white p-4 rounded-t-xl border border-gray-200 border-b-0 flex gap-3">
         <div className="relative w-full max-w-md">
           <Search
@@ -297,6 +387,7 @@ export default function ClientesPage() {
         </div>
       </div>
 
+      {/* ------------- TABLA ------------- */}
       <div className="bg-white border border-gray-200 rounded-b-xl overflow-hidden shadow-sm">
         <table className="w-full text-left">
           <thead className="bg-gray-50 border-b border-gray-200 text-xs uppercase text-gray-500 font-semibold">
@@ -309,28 +400,29 @@ export default function ClientesPage() {
           </thead>
 
           <tbody className="divide-y divide-gray-100">
+            {/* Estado: cargando */}
             {isLoading ? (
               <tr>
                 <td colSpan={4} className="p-10 text-center">
                   <Loader2 className="animate-spin inline mr-2" /> Cargando...
                 </td>
               </tr>
-            ) : clientesFiltrados.length === 0 ? (
+            ) : /* Estado: sin datos */
+            clientesFiltrados.length === 0 ? (
               <tr>
                 <td colSpan={4} className="p-10 text-center">
                   No hay clientes.
                 </td>
               </tr>
             ) : (
+              // Estado: lista con filas
               clientesFiltrados.map((c) => (
                 <tr
                   key={c.id_cliente}
                   className="hover:bg-gray-50 group transition-colors"
                 >
                   <td className="px-6 py-4">
-                    <p className="font-bold text-quality-dark">
-                      {c.n_cliente}
-                    </p>
+                    <p className="font-bold text-quality-dark">{c.n_cliente}</p>
                     <p className="text-xs text-gray-500">
                       ID: {c.id_cliente} · CIF: {c.cif}
                     </p>
@@ -341,6 +433,8 @@ export default function ClientesPage() {
                   <td className="px-6 py-4 text-sm text-gray-600">
                     {c.direccion || "-"}
                   </td>
+
+                  {/* Acciones ocultas hasta hover de fila (group-hover) */}
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
@@ -366,9 +460,11 @@ export default function ClientesPage() {
         </table>
       </div>
 
+      {/* ------------- MODAL (CREAR / EDITAR) ------------- */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
+            {/* Cabecera modal */}
             <div className="flex justify-between items-center mb-6 border-b pb-4">
               <h3 className="text-lg font-bold text-quality-dark flex gap-2 items-center">
                 <Building2 className="text-quality-red" />{" "}
@@ -379,13 +475,16 @@ export default function ClientesPage() {
               </button>
             </div>
 
+            {/* Error del modal (validación front o error backend) */}
             {erroresModal.general && (
               <div className="bg-red-50 text-red-800 p-3 rounded mb-4 flex gap-2">
                 <AlertCircle size={18} /> {erroresModal.general}
               </div>
             )}
 
+            {/* Formulario */}
             <div className="space-y-4">
+              {/* Sociedad + ID Cliente (bloqueados en edición) */}
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="text-sm font-medium block mb-1">
@@ -420,6 +519,7 @@ export default function ClientesPage() {
                 </div>
               </div>
 
+              {/* Empresa + CIF */}
               <div className="grid grid-cols-3 gap-4">
                 <div className="col-span-2">
                   <label className="text-sm font-medium block mb-1">
@@ -445,6 +545,7 @@ export default function ClientesPage() {
                 </div>
               </div>
 
+              {/* Contacto */}
               <div>
                 <label className="text-sm font-medium block mb-1">
                   Contacto
@@ -457,6 +558,7 @@ export default function ClientesPage() {
                 />
               </div>
 
+              {/* Dirección */}
               <div>
                 <label className="text-sm font-medium block mb-1">
                   Dirección
@@ -470,6 +572,7 @@ export default function ClientesPage() {
               </div>
             </div>
 
+            {/* Botonera */}
             <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
               <button
                 onClick={cerrarModal}
