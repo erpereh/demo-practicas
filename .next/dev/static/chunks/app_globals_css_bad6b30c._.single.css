@@ -67,13 +67,10 @@
     --color-red-600: #e40014;
     --color-red-700: #bf000f;
     --color-red-800: #9f0712;
-    --color-yellow-100: #fef9c2;
-    --color-yellow-700: #a36100;
     --color-green-100: #dcfce7;
     --color-green-600: #00a544;
     --color-green-700: #008138;
     --color-blue-50: #eff6ff;
-    --color-blue-100: #dbeafe;
     --color-blue-600: #155dfc;
     --color-blue-700: #1447e6;
     --color-gray-50: #f9fafb;
@@ -142,13 +139,10 @@
       --color-red-600: lab(48.4493% 77.4328 61.5452);
       --color-red-700: lab(40.4273% 67.2623 53.7441);
       --color-red-800: lab(33.7174% 55.8993 41.0293);
-      --color-yellow-100: lab(97.3564% -4.51407 27.344);
-      --color-yellow-700: lab(47.8202% 25.2426 66.5015);
       --color-green-100: lab(96.186% -13.8464 6.52362);
       --color-green-600: lab(59.0978% -58.6621 41.2579);
       --color-green-700: lab(47.0329% -47.0239 31.4788);
       --color-blue-50: lab(96.492% -1.14647 -5.11479);
-      --color-blue-100: lab(92.0301% -2.24757 -11.6453);
       --color-blue-600: lab(44.0605% 29.0279 -86.0352);
       --color-blue-700: lab(36.9089% 35.0961 -85.6872);
       --color-gray-50: lab(98.2596% -.247031 -.706708);
@@ -450,6 +444,10 @@
     top: 50%;
   }
 
+  .top-3 {
+    top: calc(var(--spacing) * 3);
+  }
+
   .left-0 {
     left: calc(var(--spacing) * 0);
   }
@@ -683,6 +681,10 @@
     flex-direction: column;
   }
 
+  .flex-wrap {
+    flex-wrap: wrap;
+  }
+
   .items-center {
     align-items: center;
   }
@@ -753,6 +755,10 @@
 
   .overflow-hidden {
     overflow: hidden;
+  }
+
+  .overflow-x-auto {
+    overflow-x: auto;
   }
 
   .overflow-y-auto {
@@ -891,10 +897,6 @@
     background-color: var(--color-blue-50);
   }
 
-  .bg-blue-100 {
-    background-color: var(--color-blue-100);
-  }
-
   .bg-gray-50 {
     background-color: var(--color-gray-50);
   }
@@ -957,10 +959,6 @@
 
   .bg-white {
     background-color: var(--color-white);
-  }
-
-  .bg-yellow-100 {
-    background-color: var(--color-yellow-100);
   }
 
   .object-contain {
@@ -1239,10 +1237,6 @@
 
   .text-white {
     color: var(--color-white);
-  }
-
-  .text-yellow-700 {
-    color: var(--color-yellow-700);
   }
 
   .capitalize {

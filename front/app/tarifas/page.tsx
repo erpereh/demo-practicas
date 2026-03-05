@@ -1,5 +1,7 @@
 "use client";
 
+// ------------- IMPORTS -------------
+// Hooks de React para estado y ciclo de vida + iconos Lucide para UI
 import { useState, useEffect } from "react";
 import {
     Search,
@@ -13,9 +15,11 @@ import {
 } from "lucide-react";
 
 /* ============================================================
-   INTERFACES
+   ------------- INTERFACES / TIPOS (DTO) -------------
 ============================================================ */
 
+// Tipado de una fila de tarifa/histórico (tal y como llega del backend)
+// Representa una asignación de tarifa por empleado + proyecto + fecha_inicio
 interface TarifaDB {
     id_sociedad: string;
     empleado: string;
@@ -25,12 +29,14 @@ interface TarifaDB {
     fecha_inicio: string;
 }
 
+// Tipado mínimo del empleado para mostrar nombre y apellidos en UI (selector y tabla)
 interface Empleado {
     id_empleado: string;
     nombre: string;
     apellidos: string;
 }
 
+// Tipado mínimo del proyecto para mostrar el nombre en UI (selector y tabla)
 interface Proyecto {
     id_proyecto: string;
     id_sociedad: string;
@@ -43,33 +49,45 @@ interface Proyecto {
 }
 
 /* ============================================================
-   COMPONENTE PRINCIPAL
+   ------------- COMPONENTE PRINCIPAL -------------
 ============================================================ */
 
 export default function HistorialProyectos() {
 
     /* ============================
-       ESTADOS GENERALES
+       ------------- ESTADOS GENERALES -------------
     ============================ */
+    // searchTerm: texto del input de búsqueda
+    // isModalOpen: controla si está abierto el modal de crear/editar
+    // modoEdicion: indica si el modal está en modo edición o creación
+    // tarifaEditando: guarda la fila seleccionada para editar (si aplica)
     const [searchTerm, setSearchTerm] = useState("");
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modoEdicion, setModoEdicion] = useState(false);
     const [tarifaEditando, setTarifaEditando] = useState<TarifaDB | null>(null);
 
+    // tarifas: listado de asignaciones desde el backend
+    // empleados / proyectos: listas auxiliares para mostrar nombres en vez de IDs
     const [tarifas, setTarifas] = useState<TarifaDB[]>([]);
     const [empleados, setEmpleados] = useState<Empleado[]>([]);
     const [proyectos, setProyectos] = useState<Proyecto[]>([]);
 
+    // isLoading: loading del GET principal (tarifas)
+    // isSaving: loading del POST/PUT/DELETE
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
 
     /* ============================
-       FORMULARIO
+       ------------- FORMULARIO (MODAL) -------------
     ============================ */
+    // empSeleccionado: id_empleado elegido en el select
+    // projSeleccionado: id_proyecto elegido en el select
+    // precio: tarifa introducida por hora (string para controlar input number fácilmente)
     const [empSeleccionado, setEmpSeleccionado] = useState("");
     const [projSeleccionado, setProjSeleccionado] = useState("");
     const [precio, setPrecio] = useState("");
 
+    // errores: mensajes de validación por campo y error general del servidor
     const [errores, setErrores] = useState<{
         empleado?: string;
         proyecto?: string;
@@ -77,11 +95,18 @@ export default function HistorialProyectos() {
         general?: string;
     }>({});
 
+    // ------------- CONFIG API -------------
+    // URL base del backend (configurable con NEXT_PUBLIC_API_URL o por defecto localhost:8000)
     const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
     /* ============================================================
-       CARGA DE DATOS
+       ------------- CARGA DE DATOS -------------
     ============================================================ */
+
+    // Carga tarifas desde el backend (GET /api/tarifas)
+    // - activa loading
+    // - si OK guarda el listado
+    // - apaga loading al final
     const cargarTarifas = async () => {
         try {
             setIsLoading(true);
@@ -97,6 +122,10 @@ export default function HistorialProyectos() {
         }
     };
 
+    // Carga empleados desde el backend (GET /api/empleados)
+    // Se usa para:
+    // - rellenar el selector de empleados
+    // - traducir el id_empleado a nombre y apellidos en la tabla
     const cargarEmpleados = async () => {
         try {
             const res = await fetch(`${API_URL}/api/empleados`);
@@ -106,6 +135,10 @@ export default function HistorialProyectos() {
         }
     };
 
+    // Carga proyectos desde el backend (GET /api/proyectos)
+    // Se usa para:
+    // - rellenar el selector de proyectos
+    // - traducir el id_proyecto a nombre_proyecto en la tabla
     const cargarProyectos = async () => {
         try {
             const res = await fetch(`${API_URL}/api/proyectos`);
@@ -115,6 +148,8 @@ export default function HistorialProyectos() {
         }
     };
 
+    // ------------- EFECTO INICIAL -------------
+    // Carga tarifas, empleados y proyectos al entrar en la página
     useEffect(() => {
         cargarTarifas();
         cargarEmpleados();
@@ -122,8 +157,12 @@ export default function HistorialProyectos() {
     }, []);
 
     /* ============================================================
-       FILTRADO
+       ------------- FILTRADO -------------
     ============================================================ */
+    // Filtra la tabla por:
+    // - nombre completo del empleado (si existe en la lista empleados)
+    // - nombre del proyecto (si existe en la lista proyectos)
+    // Si no se encuentra el objeto asociado, usa el ID como fallback
     const tarifasFiltradas = tarifas.filter(t => {
         const empleadoObj = empleados.find(e => e.id_empleado === t.empleado);
         const nombreEmpleado = empleadoObj
@@ -142,18 +181,27 @@ export default function HistorialProyectos() {
     });
 
     /* ============================================================
-       CREAR / EDITAR
+       ------------- CREAR / EDITAR (GUARDAR) -------------
     ============================================================ */
+    // Guarda una tarifa:
+    // - valida empleado, proyecto y precio > 0
+    // - si modoEdicion: usa PUT; si no: POST
+    // - envía payload alineado con el backend (/api/tarifas)
+    // - en creación usa la fecha actual como fec_inicio
+    // - en edición mantiene la fecha_inicio original para identificar el registro
     const handleGuardarTarifa = async () => {
         const nuevosErrores: any = {};
 
+        // Validación de selección de empleado/proyecto
         if (!empSeleccionado) nuevosErrores.empleado = "Debes seleccionar un empleado.";
         if (!projSeleccionado) nuevosErrores.proyecto = "Debes seleccionar un proyecto.";
 
+        // Validación del precio: numérico y mayor que 0
         const precioNum = parseFloat(precio);
         if (!precio) nuevosErrores.precio = "Introduce un precio.";
         else if (isNaN(precioNum) || precioNum <= 0) nuevosErrores.precio = "El precio debe ser mayor que 0.";
 
+        // Si hay errores, se muestran en el modal y se corta el guardado
         if (Object.keys(nuevosErrores).length > 0) {
             setErrores(nuevosErrores);
             return;
@@ -163,8 +211,12 @@ export default function HistorialProyectos() {
             setIsSaving(true);
             setErrores({});
 
+            // Define método HTTP en base a si estamos creando o editando
             const method = modoEdicion ? "PUT" : "POST";
 
+            // Envía al backend la asignación tarifa:
+            // NOTA: aquí hay valores fijos (id_sociedad "01" e id_cliente "CYC")
+            // Si más adelante quieres hacerlo dinámico, vendrían del proyecto o del selector.
             const res = await fetch(`${API_URL}/api/tarifas`, {
                 method,
                 headers: { "Content-Type": "application/json" },
@@ -178,10 +230,12 @@ export default function HistorialProyectos() {
                 })
             });
 
+            // Si OK: cierra modal y recarga listado
             if (res.ok) {
                 cerrarModal();
                 cargarTarifas();
             } else {
+                // Si KO: muestra error del servidor en el modal
                 const errorData = await res.json();
                 setErrores({ general: errorData.detail || "Error del servidor." });
             }
@@ -194,8 +248,13 @@ export default function HistorialProyectos() {
     };
 
     /* ============================================================
-       EDITAR
+       ------------- EDITAR -------------
     ============================================================ */
+    // Entra en modo edición:
+    // - guarda el registro que se va a editar
+    // - precarga el formulario (empleado, proyecto, tarifa)
+    // - abre el modal
+    // - bloquea los selects en el modal (no se cambian empleado/proyecto en edición)
     const handleEditar = (tarifa: TarifaDB) => {
         setModoEdicion(true);
         setTarifaEditando(tarifa);
@@ -208,8 +267,13 @@ export default function HistorialProyectos() {
     };
 
     /* ============================================================
-       ELIMINAR
+       ------------- ELIMINAR -------------
     ============================================================ */
+    // Elimina una tarifa:
+    // - pide confirmación
+    // - construye query params con claves identificativas del registro
+    // - llama al backend con DELETE /api/tarifas?id_empleado=...&id_proyecto=...&fec_inicio=...
+    // - si OK recarga listado
     const handleEliminar = async (tarifa: TarifaDB) => {
         if (!confirm("¿Seguro que quieres eliminar esta tarifa?")) return;
 
@@ -228,8 +292,14 @@ export default function HistorialProyectos() {
     };
 
     /* ============================================================
-       CERRAR MODAL
+       ------------- CERRAR MODAL -------------
     ============================================================ */
+    // Resetea el estado del modal:
+    // - cierra ventana
+    // - sale de modo edición
+    // - limpia registro en edición
+    // - limpia errores
+    // - resetea campos del formulario
     const cerrarModal = () => {
         setIsModalOpen(false);
         setModoEdicion(false);
@@ -241,8 +311,13 @@ export default function HistorialProyectos() {
     };
 
     /* ============================================================
-       RENDER
+       ------------- RENDER -------------
     ============================================================ */
+    // UI principal:
+    // - cabecera + botón asignar
+    // - buscador
+    // - tabla con acciones (editar/eliminar) visibles en hover
+    // - modal para crear/editar con validaciones y feedback de errores
     return (
         <div className="p-10 max-w-7xl mx-auto relative">
 
@@ -303,9 +378,11 @@ export default function HistorialProyectos() {
                             </tr>
                         ) : (
                             tarifasFiltradas.map(t => {
+                                // Resuelve el nombre del empleado desde la lista (fallback al ID)
                                 const empleadoObj = empleados.find(e => e.id_empleado === t.empleado);
                                 const nombreEmpleado = empleadoObj ? `${empleadoObj.nombre} ${empleadoObj.apellidos}` : t.empleado;
 
+                                // Resuelve el nombre del proyecto desde la lista (fallback al ID)
                                 const proyectoObj = proyectos.find(p => p.id_proyecto === t.proyecto);
                                 const nombreProyecto = proyectoObj ? proyectoObj.nombre_proyecto : t.proyecto;
 
@@ -315,6 +392,7 @@ export default function HistorialProyectos() {
                                         <td className="px-6 py-4 text-gray-600">{nombreProyecto}</td>
                                         <td className="px-6 py-4 font-mono">{t.tarifa.toFixed(2)} €</td>
                                         <td className="px-6 py-4 text-right">
+                                            {/* Botones en hover de fila */}
                                             <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button
                                                     className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
@@ -352,6 +430,7 @@ export default function HistorialProyectos() {
                         </div>
 
                         <div className="p-6 space-y-5">
+                            {/* Error general del modal (servidor/validación general) */}
                             {errores.general && (
                                 <div className="bg-red-50 border-l-4 border-quality-red p-3 rounded-r-md flex items-start gap-3">
                                     <AlertCircle className="text-quality-red shrink-0 mt-0.5" size={18} />

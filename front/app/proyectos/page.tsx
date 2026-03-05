@@ -1,9 +1,14 @@
 "use client";
+
+// ------------- IMPORTS -------------
+// Hooks de React para estado, efectos y memoización de funciones (useCallback)
 import {
     useState,
     useEffect,
     useCallback
 } from "react";
+
+// Iconos Lucide para la interfaz
 import {
     Search,
     Plus,
@@ -15,15 +20,22 @@ import {
     AlertCircle
 } from "lucide-react";
 
+// ------------- ENDPOINTS API -------------
+// Base de proyectos (CRUD) y base de clientes (para rellenar el <select>)
+// Nota: aquí están hardcodeados a localhost. Si usas variable de entorno, lo normal es API_URL.
 const API_BASE          = "http://localhost:8000/api/proyectos";
 const API_CLIENTES_BASE = "http://localhost:8000/api/clientes";
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
+// Tipado mínimo del cliente para mostrar nombre en tabla y cargar el select.
 interface Cliente {
     id_cliente: string;
     n_cliente:  string;
 }
 
+// Tipado del proyecto que devuelve el backend:
+// - id_cliente guarda el ID real de BD
+// - cliente puede venir como objeto "resuelto" (embed) para mostrar n_cliente directamente
 interface Proyecto {
     id_proyecto:             string;
     id_sociedad:             string;
@@ -36,6 +48,8 @@ interface Proyecto {
     cliente:                 Cliente | null; // objeto resuelto por el backend
 }
 
+// Tipado del formulario del modal (strings para inputs):
+// - precio y fec_inicio se manejan como string y se transforman al guardar
 interface ProyectoForm {
     id_proyecto:             string;
     id_sociedad:             string;
@@ -47,6 +61,8 @@ interface ProyectoForm {
     fec_inicio:              string;
 }
 
+// ------------- ESTADO INICIAL DEL FORMULARIO -------------
+// Valores por defecto al crear un proyecto nuevo.
 const FORM_EMPTY: ProyectoForm = {
     id_proyecto:             "",
     id_sociedad:             "",
@@ -60,6 +76,14 @@ const FORM_EMPTY: ProyectoForm = {
 
 export default function ProyectosPage() {
 
+    // ------------- ESTADO PRINCIPAL -------------
+    // proyectos: lista de proyectos devuelta por la API
+    // clientes: lista para el selector
+    // searchTerm: búsqueda del usuario
+    // loading: carga del listado
+    // error: error al cargar proyectos
+    // saving: carga al guardar (POST/PUT)
+    // apiError: error de validación del backend al guardar
     const [proyectos, setProyectos] = useState<Proyecto[]>([]);
     const [clientes,  setClientes]  = useState<Cliente[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
@@ -68,12 +92,21 @@ export default function ProyectosPage() {
     const [saving,   setSaving]   = useState(false);
     const [apiError, setApiError] = useState<string | null>(null);
 
+    // ------------- ESTADO MODALES -------------
+    // isModalOpen: modal crear/editar
+    // editingProyecto: si existe, modal en modo edición
+    // form: datos del formulario del modal
+    // deleteId: si existe, abre modal de confirmación para borrar ese proyecto
     const [isModalOpen,     setIsModalOpen]     = useState(false);
     const [editingProyecto, setEditingProyecto] = useState<Proyecto | null>(null);
     const [form, setForm] = useState<ProyectoForm>(FORM_EMPTY);
     const [deleteId, setDeleteId] = useState<string | null>(null);
 
     // ── FETCH proyectos ────────────────────────────────────────────────────────
+    // Carga proyectos desde la API.
+    // - opcionalmente acepta un texto q para búsqueda (debounce desde useEffect).
+    // - usa URLSearchParams para construir querystring (?q=...).
+    // - maneja loading/error y guarda resultados en state.
     const fetchProyectos = useCallback(async (q?: string) => {
         setLoading(true);
         setError(null);
@@ -91,6 +124,8 @@ export default function ProyectosPage() {
     }, []);
 
     // ── FETCH clientes para el <select> ────────────────────────────────────────
+    // Carga la lista de clientes para poder seleccionar el id_cliente al crear/editar.
+    // Si falla, no es crítico: el modal tiene un fallback input para escribir el ID.
     const fetchClientes = useCallback(async () => {
         try {
             const res = await fetch(`${API_CLIENTES_BASE}/`);
@@ -99,17 +134,27 @@ export default function ProyectosPage() {
         } catch { /* no crítico */ }
     }, []);
 
+    // ------------- EFECTO INICIAL -------------
+    // Carga proyectos y clientes al entrar en la página.
     useEffect(() => {
         fetchProyectos();
         fetchClientes();
     }, [fetchProyectos, fetchClientes]);
 
+    // ------------- BÚSQUEDA CON DEBOUNCE -------------
+    // Espera 300ms desde que el usuario deja de escribir para pedir la búsqueda al backend.
+    // Evita hacer una petición por cada tecla.
     useEffect(() => {
         const timer = setTimeout(() => fetchProyectos(searchTerm || undefined), 300);
         return () => clearTimeout(timer);
     }, [searchTerm, fetchProyectos]);
 
     // ── MODAL CREAR ────────────────────────────────────────────────────────────
+    // Abre el modal en modo creación:
+    // - limpia proyecto en edición
+    // - resetea formulario
+    // - limpia error del backend
+    // - abre modal
     const openCreate = () => {
         setEditingProyecto(null);
         setForm(FORM_EMPTY);
@@ -118,6 +163,11 @@ export default function ProyectosPage() {
     };
 
     // ── MODAL EDITAR ───────────────────────────────────────────────────────────
+    // Abre el modal en modo edición:
+    // - guarda el proyecto seleccionado
+    // - precarga el formulario con los datos actuales
+    // - convierte precio number -> string
+    // - mantiene fec_inicio como string compatible con <input type="date">
     const openEdit = (proyecto: Proyecto) => {
         setEditingProyecto(proyecto);
         setForm({
@@ -135,12 +185,21 @@ export default function ProyectosPage() {
     };
 
     // ── GUARDAR ────────────────────────────────────────────────────────────────
+    // Guarda el proyecto (creación o edición):
+    // - Si editingProyecto existe -> PUT /api/proyectos/{id}
+    // - Si no -> POST /api/proyectos/
+    // - En edición se envían solo campos modificables (body parcial)
+    // - Convierte precio string -> number cuando procede
+    // - Si OK: cierra modal y recarga listado con el filtro actual
+    // - Si KO: muestra error del backend en apiError
     const handleSave = async () => {
         setSaving(true);
         setApiError(null);
         try {
             let res: Response;
             if (editingProyecto) {
+                // ------------- UPDATE (PUT) -------------
+                // Construye body parcial para no tocar campos que no se están editando.
                 const body: Record<string, any> = {};
                 if (form.nombre_proyecto)         body.nombre_proyecto         = form.nombre_proyecto;
                 if (form.codigo_proyecto_tracker) body.codigo_proyecto_tracker = form.codigo_proyecto_tracker;
@@ -154,7 +213,8 @@ export default function ProyectosPage() {
                     body: JSON.stringify(body),
                 });
             } else {
-                // id_cliente contiene el ID seleccionado en el <select>
+                // ------------- CREATE (POST) -------------
+                // id_cliente viene del <select> (value=ID) y se envía al backend como FK.
                 const body: Record<string, any> = {
                     id_proyecto:             form.id_proyecto,
                     id_sociedad:             form.id_sociedad,
@@ -173,11 +233,13 @@ export default function ProyectosPage() {
                 });
             }
 
+            // Si el backend devuelve error, intenta leer detail y lo muestra
             if (!res.ok) {
                 const err = await res.json();
                 throw new Error(err.detail || `Error ${res.status}`);
             }
 
+            // Si OK: cierra modal y recarga listado con el filtro actual
             setIsModalOpen(false);
             fetchProyectos(searchTerm || undefined);
         } catch (e: any) {
@@ -188,6 +250,10 @@ export default function ProyectosPage() {
     };
 
     // ── ELIMINAR ───────────────────────────────────────────────────────────────
+    // Borra un proyecto definitivamente:
+    // - DELETE /api/proyectos/{id}
+    // - si OK: cierra confirmación y recarga listado
+    // - si KO: muestra alert con el error del backend
     const handleDelete = async (id_proyecto: string) => {
         try {
             const res = await fetch(`${API_BASE}/${id_proyecto}`, { method: "DELETE" });
@@ -202,16 +268,28 @@ export default function ProyectosPage() {
         }
     };
 
+    // Actualiza un campo del formulario manteniendo el resto (patrón setState con spread)
     const updateForm = (field: keyof ProyectoForm, value: string) =>
         setForm(prev => ({ ...prev, [field]: value }));
 
-    // Nombre a mostrar en la tabla: usa el objeto resuelto si existe, si no el ID
+    // Nombre a mostrar en la tabla:
+    // - si backend incluye embed cliente, muestra n_cliente
+    // - si no, usa id_cliente como fallback
     const nombreCliente = (p: Proyecto) => p.cliente?.n_cliente ?? p.id_cliente;
 
-    // Nombre a mostrar en el <select> del modal de edición
+    // Nombre a mostrar como referencia en el modal al editar:
+    // - resuelve el nombre del cliente desde la lista cargada
+    // - si no está, muestra el ID
     const labelClienteSeleccionado = (id: string) =>
         clientes.find(c => c.id_cliente === id)?.n_cliente ?? id;
 
+    // ------------- RENDER -------------
+    // UI:
+    // - cabecera + botón nuevo
+    // - buscador con debounce
+    // - tabla con acciones visibles en hover (editar/borrar)
+    // - modal crear/editar con select de clientes
+    // - modal confirmación de borrado
     return (
         <div className="p-10 max-w-7xl mx-auto relative">
 
@@ -245,19 +323,23 @@ export default function ProyectosPage() {
 
             {/* TABLA */}
             <div className="bg-white border border-gray-200 rounded-b-xl overflow-hidden shadow-sm">
+                {/* Estado: cargando */}
                 {loading ? (
                     <div className="flex items-center justify-center py-20 text-gray-400 gap-2">
                         <Loader2 size={20} className="animate-spin" /> Cargando proyectos...
                     </div>
-                ) : error ? (
+                ) : /* Estado: error */
+                error ? (
                     <div className="flex items-center justify-center py-20 text-red-500 gap-2">
                         <AlertCircle size={20} /> {error}
                     </div>
-                ) : proyectos.length === 0 ? (
+                ) : /* Estado: sin datos */
+                proyectos.length === 0 ? (
                     <div className="flex items-center justify-center py-20 text-gray-400">
                         No se encontraron proyectos.
                     </div>
                 ) : (
+                    // Estado: lista con filas
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-gray-50/50 border-b border-gray-200 text-xs uppercase tracking-wider text-gray-500 font-semibold">
@@ -278,8 +360,10 @@ export default function ProyectosPage() {
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 font-bold text-quality-dark">{proyecto.nombre_proyecto}</td>
-                                    {/* Muestra el nombre del cliente; el ID queda en BD */}
+
+                                    {/* Muestra nombre del cliente si viene embed; si no, usa ID */}
                                     <td className="px-6 py-4 text-gray-600">{nombreCliente(proyecto)}</td>
+
                                     <td className="px-6 py-4">
                                         <span className="text-sm font-medium text-gray-700 bg-gray-100 px-3 py-1 rounded-full capitalize">
                                             {proyecto.tipo_pago}
@@ -290,6 +374,8 @@ export default function ProyectosPage() {
                                             {proyecto.codigo_proyecto_tracker}
                                         </span>
                                     </td>
+
+                                    {/* Acciones visibles en hover */}
                                     <td className="px-6 py-4 text-right">
                                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <button onClick={() => openEdit(proyecto)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
@@ -312,6 +398,7 @@ export default function ProyectosPage() {
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm">
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden">
 
+                        {/* Cabecera modal */}
                         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                             <h3 className="text-lg font-bold text-quality-dark flex items-center gap-2">
                                 <FolderKanban size={20} className="text-quality-red" />
@@ -323,12 +410,14 @@ export default function ProyectosPage() {
                         </div>
 
                         <div className="p-6 space-y-4">
+                            {/* Error del backend al guardar */}
                             {apiError && (
                                 <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">
                                     <AlertCircle size={16} /> {apiError}
                                 </div>
                             )}
 
+                            {/* Campos solo en creación: id_proyecto e id_sociedad */}
                             {!editingProyecto && (
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
@@ -354,6 +443,7 @@ export default function ProyectosPage() {
                                 </div>
                             )}
 
+                            {/* Nombre del proyecto */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del Proyecto *</label>
                                 <input
@@ -376,14 +466,13 @@ export default function ProyectosPage() {
                                     >
                                         <option value="">— Selecciona un cliente —</option>
                                         {clientes.map(c => (
-                                            // value = ID (lo que se guarda), texto visible = nombre
                                             <option key={c.id_cliente} value={c.id_cliente}>
                                                 {c.n_cliente}
                                             </option>
                                         ))}
                                     </select>
                                 ) : (
-                                    // Fallback si la lista de clientes no cargó
+                                    // Fallback si no cargan clientes: permite escribir el ID a mano
                                     <input
                                         type="text"
                                         value={form.id_cliente}
@@ -392,7 +481,8 @@ export default function ProyectosPage() {
                                         placeholder="ID del cliente"
                                     />
                                 )}
-                                {/* Al editar mostramos el nombre actual como referencia */}
+
+                                {/* En edición: muestra el nombre asociado al ID como referencia */}
                                 {editingProyecto && form.id_cliente && (
                                     <p className="mt-1 text-xs text-gray-400">
                                         Actualmente: <span className="font-medium text-gray-600">{labelClienteSeleccionado(form.id_cliente)}</span>
@@ -400,6 +490,7 @@ export default function ProyectosPage() {
                                 )}
                             </div>
 
+                            {/* Tipo de pago + tracker */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Pago</label>
@@ -425,6 +516,7 @@ export default function ProyectosPage() {
                                 </div>
                             </div>
 
+                            {/* Precio + fecha inicio */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Precio</label>
@@ -448,6 +540,7 @@ export default function ProyectosPage() {
                             </div>
                         </div>
 
+                        {/* Botonera modal */}
                         <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50/50">
                             <button
                                 onClick={() => setIsModalOpen(false)}
@@ -474,7 +567,9 @@ export default function ProyectosPage() {
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
                         <h3 className="text-lg font-bold text-quality-dark mb-2">¿Eliminar proyecto?</h3>
                         <p className="text-gray-500 text-sm mb-6">
-                            Esta acción eliminará el proyecto <span className="font-mono font-semibold text-gray-700">{deleteId}</span> permanentemente.
+                            Esta acción eliminará el proyecto{" "}
+                            <span className="font-mono font-semibold text-gray-700">{deleteId}</span>{" "}
+                            permanentemente.
                         </p>
                         <div className="flex justify-end gap-3">
                             <button onClick={() => setDeleteId(null)} className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors">
