@@ -12,7 +12,7 @@ Notas:
 - No hay control de duplicidad aún (mejorable).
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from datetime import datetime
 from app.models.horas_trab import HorasTrab
@@ -80,33 +80,22 @@ def listar_fichajes_pro(id_proyecto: str, db: Session = Depends(get_db)):
 
 @router.post("/horas")
 def fichar_manual(
-    id_sociedad: str,
-    fecha: str,
-    id_empleado: str,
-    id_cliente: str,
-    id_proyecto: str,
-    horas_dia: float,
-    desc_tarea: str,
+    data: dict = Body(...),
     db: Session = Depends(get_db)
 ):
-
-    try:
-        fecha_convertida = datetime.strptime(fecha, "%Y-%m-%d")
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Formato de fecha incorrecto (YYYY-MM-DD)")
+    fecha_convertida = datetime.strptime(data["fecha"], "%Y-%m-%d")
 
     nuevo = HorasTrab(
-        id_sociedad=id_sociedad,
+        id_sociedad=data["id_sociedad"],
         fecha=fecha_convertida,
-        id_empleado=id_empleado,
-        id_cliente=id_cliente,
-        id_proyecto=id_proyecto,
-        horas_dia=horas_dia,
-        desc_tarea=desc_tarea
+        id_empleado=data["id_empleado"],
+        id_cliente=data["id_cliente"],
+        id_proyecto=data["id_proyecto"],
+        horas_dia=data["horas_dia"],
+        desc_tarea=data["desc_tarea"],
     )
 
     db.add(nuevo)
     db.commit()
-    db.refresh(nuevo)
 
     return {"mensaje": "Fichaje creado correctamente"}
