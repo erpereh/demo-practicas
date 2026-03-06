@@ -20,7 +20,7 @@ class HorasTrab(Base):
 
     __tablename__ = "HORAS_TRAB"
 
-    # 🔥 Clave primaria compuesta necesaria para SQLAlchemy
+    #  Clave primaria compuesta necesaria para SQLAlchemy
     # (aunque la tabla real no tenga PK definida)
     id_empleado = Column("ID_EMPLEADO", String(20), primary_key=True)
     fecha = Column("FECHA", Date, primary_key=True)
