@@ -35,6 +35,8 @@ from app.database import get_db
 from app.models.empleado import Empleado
 from app.models.cliente import Cliente
 from app.models.hist_proyecto import HistProyecto
+
+from app.models.proyecto import Proyecto
 from app.models.horas_trab import HorasTrab
 
 #BaseModel necesario para los endpoint POST
@@ -93,10 +95,11 @@ def generar_factura(
 
     num_factura = f"QS{prefijo}{secuencia:04d}"
 
-    # Evitar duplicados
+    # Evitar duplicados 
     existe = db.query(Factura).filter(
         Factura.num_factura == num_factura
     ).first()
+    
 
     if existe:
         raise HTTPException(status_code=400, detail="Factura duplicada")
@@ -139,20 +142,22 @@ def get_empleado_nombre(dni: str, db: Session) -> str:
 
 #Consigue la tarifa para devolver precio/hora (Utiliza HistProyecto)
 def get_tarifa(dni: str, id_proyecto: str, db: Session):
+    print("BUSCANDO TARIFA:", dni, id_proyecto)
     tarifa = db.query(HistProyecto).filter(
         HistProyecto.id_empleado == dni,
         HistProyecto.id_proyecto == id_proyecto
     ).order_by(HistProyecto.fec_inicio.desc()).first()
 
+    print("RESULTADO TARIFA:", tarifa)
     return float(tarifa.tarifa) if tarifa else None
 
 #Previsualiza las horas pendientes (Usa HorasTrab)
 def _preview_calculo(anio: int, mes: int, id_cliente: str, db: Session):
 
     # 1️⃣ Horas pendientes desde BBDD
+    #Solo horas de proyectos del cliente seleccionado
     pendientes = db.query(HorasTrab).filter(
         HorasTrab.id_cliente == id_cliente,
-        HorasTrab.estado == "PENDIENTE",
         extract("year", HorasTrab.fecha) == anio,
         extract("month", HorasTrab.fecha) == mes
     ).all()
@@ -165,6 +170,7 @@ def _preview_calculo(anio: int, mes: int, id_cliente: str, db: Session):
     agrupado = {}
 
     for h in pendientes:
+        print("HORA: ", h.id_cliente, h.id_proyecto)
         key = (h.id_empleado, h.id_proyecto)
         if key not in agrupado:
             agrupado[key] = {"horas": 0.0}
@@ -232,7 +238,7 @@ def preview_factura(request: PreviewRequest, db: Session = Depends(get_db)):
     if request.anio < 2000 or request.anio > 2100:
         raise HTTPException(status_code=400, detail="Año inválido")
     #Preview (no guarda nada)
-    return _preview_calculo(request.anio, request.mes, request.id_cliente)
+    return _preview_calculo(request.anio, request.mes, request.id_cliente, db)
 
 
 
@@ -257,11 +263,12 @@ def generar_factura(request: GenerarFacturaRequest, db: Session = Depends(get_db
     if request.anio < 2000 or request.anio > 2100:
         raise HTTPException(status_code=400, detail="Año inválido")
 
+
     # Evitar duplicados por cliente/mes/año
     existe = db.query(Factura).filter(
         Factura.id_cliente == request.id_cliente,
-        Factura.anio == request.anio,
-        Factura.mes == request.mes
+        extract("year", Factura.fec_factura) == request.anio,
+        extract("month", Factura.fec_factura) == request.mes
     ).first()
     if existe:
         raise HTTPException(status_code=400, detail="Ya existe una factura para ese cliente/mes/año")
