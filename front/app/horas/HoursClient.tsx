@@ -48,6 +48,7 @@ export default function HoursClient() {
 
       try {
         const [resHoras, resEmp, resPro] = await Promise.all([
+          //a
           fetch("http://127.0.0.1:8000/api/horas"),
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/empleados`),
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/proyectos`)
