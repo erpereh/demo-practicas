@@ -86,6 +86,7 @@ export default function HistorialProyectos() {
     const [empSeleccionado, setEmpSeleccionado] = useState("");
     const [projSeleccionado, setProjSeleccionado] = useState("");
     const [precio, setPrecio] = useState("");
+    const [fechaInicio, setFechaInicio] = useState(""); // nueva fecha de inicio
 
     // errores: mensajes de validación por campo y error general del servidor
     const [errores, setErrores] = useState<{
@@ -191,6 +192,9 @@ export default function HistorialProyectos() {
     // - en edición mantiene la fecha_inicio original para identificar el registro
     const handleGuardarTarifa = async () => {
         const nuevosErrores: any = {};
+        if (!modoEdicion && !fechaInicio) {
+        nuevosErrores.general = "Debes seleccionar una fecha de inicio.";
+        }
 
         // Validación de selección de empleado/proyecto
         if (!empSeleccionado) nuevosErrores.empleado = "Debes seleccionar un empleado.";
@@ -225,7 +229,7 @@ export default function HistorialProyectos() {
                     id_empleado: empSeleccionado,
                     id_cliente: "CYC",
                     id_proyecto: projSeleccionado,
-                    fec_inicio: modoEdicion ? tarifaEditando?.fecha_inicio : new Date().toISOString().split("T")[0],
+                    fec_inicio: modoEdicion ? tarifaEditando?.fecha_inicio : fechaInicio,
                     tarifa: precioNum
                 })
             });
@@ -301,6 +305,7 @@ export default function HistorialProyectos() {
     // - limpia errores
     // - resetea campos del formulario
     const cerrarModal = () => {
+        setFechaInicio("");
         setIsModalOpen(false);
         setModoEdicion(false);
         setTarifaEditando(null);
@@ -356,6 +361,7 @@ export default function HistorialProyectos() {
                         <tr className="bg-gray-50/50 border-b border-gray-200 text-xs uppercase tracking-wider text-gray-500 font-semibold">
                             <th className="px-6 py-4">Empleado</th>
                             <th className="px-6 py-4">Proyecto Asignado</th>
+                            <th className="px-6 py-4">Fecha Inicio</th>
                             <th className="px-6 py-4">Tarifa (€/Hora)</th>
                             <th className="px-6 py-4 text-right">Acciones</th>
                         </tr>
@@ -363,7 +369,7 @@ export default function HistorialProyectos() {
                     <tbody className="divide-y divide-gray-100">
                         {isLoading ? (
                             <tr>
-                                <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
+                                <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
                                     <div className="flex flex-col items-center justify-center gap-2">
                                         <Loader2 className="animate-spin text-quality-red" size={24} />
                                         <span>Conectando con la base de datos...</span>
@@ -372,7 +378,7 @@ export default function HistorialProyectos() {
                             </tr>
                         ) : tarifasFiltradas.length === 0 ? (
                             <tr>
-                                <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
+                                <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
                                     No hay tarifas registradas o hubo un error de conexion.
                                 </td>
                             </tr>
@@ -390,6 +396,12 @@ export default function HistorialProyectos() {
                                     <tr key={`${t.id_sociedad}-${t.empleado}-${t.proyecto}-${t.fecha_inicio}`} className="hover:bg-gray-50/50 transition-colors group">
                                         <td className="px-6 py-4 font-bold text-quality-dark">{nombreEmpleado}</td>
                                         <td className="px-6 py-4 text-gray-600">{nombreProyecto}</td>
+
+                                        {/* Fecha de inicio de la tarifa */}
+                                        <td className="px-6 py-4 text-gray-500 font-mono">
+                                            {t.fecha_inicio}
+                                        </td>
+
                                         <td className="px-6 py-4 font-mono">{t.tarifa.toFixed(2)} €</td>
                                         <td className="px-6 py-4 text-right">
                                             {/* Botones en hover de fila */}
@@ -430,6 +442,19 @@ export default function HistorialProyectos() {
                         </div>
 
                         <div className="p-6 space-y-5">
+                            {/* Fecha de Inicio */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Inicio</label>
+                                <input
+                                    type="date"
+                                    value={fechaInicio}
+                                    onChange={e => { setFechaInicio(e.target.value); setErrores({ ...errores, general: undefined }); }}
+                                    className={`w-full border rounded-lg px-3 py-2 outline-none transition-colors ${
+                                        errores.general ? 'border-quality-red focus:ring-quality-red/20' : 'border-gray-300 focus:ring-quality-dark/20 focus:border-quality-dark'
+                                    }`}
+                                    disabled={modoEdicion} // opcional: si quieres bloquear en edición
+                                />
+                            </div>
                             {/* Error general del modal (servidor/validación general) */}
                             {errores.general && (
                                 <div className="bg-red-50 border-l-4 border-quality-red p-3 rounded-r-md flex items-start gap-3">
