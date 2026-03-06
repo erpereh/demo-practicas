@@ -5,6 +5,11 @@ from flask_cors import CORS
 import pandas as pd
 # Librería para conexión y ejecución de consultas SQL
 from sqlalchemy import create_engine, text
+import os
+import urllib.parse
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base
+from dotenv import load_dotenv
 
 app = Flask(__name__)
 app.secret_key = "super_secret_key"
@@ -12,18 +17,32 @@ app.secret_key = "super_secret_key"
 # Permitir conexión desde frontend
 CORS(app, supports_credentials=True)
 
+load_dotenv()  # Cargar variables del .env
+
+
+password = urllib.parse.quote_plus(os.getenv("DB_PASSWORD"))
+user = os.getenv("DB_USER")
+host = os.getenv("DB_HOST")
+port = os.getenv("DB_PORT")
+database = os.getenv("DB_NAME")
+
+SQLALCHEMY_DATABASE_URL = f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}"
+ 
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
 # =========================
 # CONFIGURACIÓN BASE DATOS
 # =========================
-DB_USER = 'root'
-DB_PASS = '1234'
-DB_HOST = 'localhost'
-DB_NAME = 'gestion_empresa'
+#DB_USER = 'root'
+#DB_PASS = '1234'
+#DB_HOST = 'localhost'
+#DB_NAME = 'gestion_empresa'
 
 # Se crea el engine de conexión con SQLAlchemy
-engine = create_engine(
-    f'mysql+mysqlconnector://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}'
-)
+#engine = create_engine(
+#    f'mysql+mysqlconnector://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}'
+#)
 
 # =========================
 # PREVISUALIZACIÓN (NO GUARDA)
@@ -51,10 +70,17 @@ def preview_horas():
 
             # Obtiene valores de cada columna
             ID_SOCIEDAD = fila.get('ID_SOCIEDAD')
-            ID_EMPLEADO = fila.get('ID_EMPLEADO')
-            FECHA = pd.to_datetime(fila.get('FECHA'), dayfirst=True).date()
-            ID_CLIENTE = fila.get('ID_CLIENTE')
-            ID_PROYECTO = fila.get('ID_PROYECTO')
+
+            ID_EMPLEADO = str(fila.get('ID_EMPLEADO')).strip().upper()
+            ID_CLIENTE = str(fila.get('ID_CLIENTE')).strip().upper()
+            ID_PROYECTO = str(fila.get('ID_PROYECTO')).strip().upper()
+
+            fecha_raw = fila.get('FECHA')
+
+            if pd.isna(fecha_raw):
+                FECHA = None
+            else:
+                FECHA = pd.to_datetime(fecha_raw, dayfirst=True).date()
             HORAS_DIA = fila.get('HORAS_DIA')
             DESC_TAREA = fila.get('DESC_TAREA', '')
 
@@ -165,20 +191,41 @@ def confirm_horas():
         # Asegura que la fecha sea tipo date
         for fila in filas_validas:
             fila["FECHA"] = pd.to_datetime(fila["FECHA"]).date()
+            # Asegura que HORAS_DIA sea float
+            fila["HORAS_DIA"] = float(fila["HORAS_DIA"])
+        # Formatea ID_SOCIEDAD a dos dígitos (1 → '01')
+            fila["ID_SOCIEDAD"] = str(fila["ID_SOCIEDAD"]).zfill(2)
 
+
+        #print("Filas que se van a insertar:", filas_validas)
         with engine.begin() as conn:
-            # Inserta múltiples filas en una sola ejecución
-            conn.execute(
-            text("""
-                INSERT INTO HORAS_TRAB
-                (ID_SOCIEDAD, ID_EMPLEADO, FECHA, ID_CLIENTE, ID_PROYECTO, HORAS_DIA, DESC_TAREA)
-                VALUES (:ID_SOCIEDAD, :ID_EMPLEADO, :FECHA, :ID_CLIENTE, :ID_PROYECTO, :HORAS_DIA, :DESC_TAREA)
-                ON DUPLICATE KEY UPDATE
-                    HORAS_DIA = VALUES(HORAS_DIA),
-                    DESC_TAREA = VALUES(DESC_TAREA)
-            """),
-    filas_validas
-)
+            for fila in filas_validas:
+
+        # comprobar si ya existe el registro
+                existe = conn.execute(
+                    text("""
+                    SELECT 1 FROM HORAS_TRAB
+                    WHERE ID_SOCIEDAD = :ID_SOCIEDAD
+                    AND ID_EMPLEADO = :ID_EMPLEADO
+                    AND FECHA = :FECHA
+                    AND ID_CLIENTE = :ID_CLIENTE
+                    AND ID_PROYECTO = :ID_PROYECTO
+                    """),
+                    fila
+                ).fetchone()
+
+        # si NO existe se inserta
+                if not existe:
+                    conn.execute(
+                        text("""
+                        INSERT INTO HORAS_TRAB
+                        (ID_SOCIEDAD, ID_EMPLEADO, FECHA, ID_CLIENTE, ID_PROYECTO, HORAS_DIA, DESC_TAREA)
+                        VALUES
+                        (:ID_SOCIEDAD, :ID_EMPLEADO, :FECHA, :ID_CLIENTE, :ID_PROYECTO, :HORAS_DIA, :DESC_TAREA)
+                        """),
+                        fila
+                    )
+         
 
         session.pop('filas_validas', None)
 

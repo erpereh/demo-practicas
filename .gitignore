@@ -11,4 +11,13 @@ __pycache__/
 *.pyd
 
 # VS Code
+.vscode/.vscode/
 .vscode/
+.next/dev/static/chunks/_a0ff3932._.js
+.next/dev/static/chunks/_a0ff3932._.js
+*.css
+.next/dev/static/chunks/app_layout_tsx_1cf6b850._.js
+*.js
+*.js
+.next/dev/static/chunks/\[next\]_internal_font_google_montserrat_a93acac_module_css_bad6b30c._.single.css.map
+*.css
