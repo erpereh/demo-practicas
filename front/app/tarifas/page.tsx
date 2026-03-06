@@ -1,25 +1,42 @@
 "use client";
-import { useState, useEffect } from "react";
-import { Search, Plus, Edit, Trash2, X, CircleDollarSign, AlertCircle, Loader2 } from "lucide-react";
 
-// Estructura de la tabla de tarifas
+// ------------- IMPORTS -------------
+// Hooks de React para estado y ciclo de vida + iconos Lucide para UI
+import { useState, useEffect } from "react";
+import {
+    Search,
+    Plus,
+    Edit,
+    Trash2,
+    X,
+    CircleDollarSign,
+    AlertCircle,
+    Loader2
+} from "lucide-react";
+
+/* ============================================================
+   ------------- INTERFACES / TIPOS (DTO) -------------
+============================================================ */
+
+// Tipado de una fila de tarifa/histórico (tal y como llega del backend)
+// Representa una asignación de tarifa por empleado + proyecto + fecha_inicio
 interface TarifaDB {
     id_sociedad: string;
-    empleado: string; // id del empleado
+    empleado: string;
     cliente: string;
-    proyecto: string; // id del proyecto
+    proyecto: string;
     tarifa: number;
     fecha_inicio: string;
 }
 
-// Estructura de empleados
+// Tipado mínimo del empleado para mostrar nombre y apellidos en UI (selector y tabla)
 interface Empleado {
     id_empleado: string;
     nombre: string;
     apellidos: string;
 }
 
-// Estructura de proyectos
+// Tipado mínimo del proyecto para mostrar el nombre en UI (selector y tabla)
 interface Proyecto {
     id_proyecto: string;
     id_sociedad: string;
@@ -31,28 +48,66 @@ interface Proyecto {
     fec_inicio: string | null;
 }
 
-export default function HistorialProyectos() { // Cambio de nombre del componente
+/* ============================================================
+   ------------- COMPONENTE PRINCIPAL -------------
+============================================================ */
+
+export default function HistorialProyectos() {
+
+    /* ============================
+       ------------- ESTADOS GENERALES -------------
+    ============================ */
+    // searchTerm: texto del input de búsqueda
+    // isModalOpen: controla si está abierto el modal de crear/editar
+    // modoEdicion: indica si el modal está en modo edición o creación
+    // tarifaEditando: guarda la fila seleccionada para editar (si aplica)
     const [searchTerm, setSearchTerm] = useState("");
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [modoEdicion, setModoEdicion] = useState(false);
+    const [tarifaEditando, setTarifaEditando] = useState<TarifaDB | null>(null);
 
-    // Estados para datos reales
+    // tarifas: listado de asignaciones desde el backend
+    // empleados / proyectos: listas auxiliares para mostrar nombres en vez de IDs
     const [tarifas, setTarifas] = useState<TarifaDB[]>([]);
     const [empleados, setEmpleados] = useState<Empleado[]>([]);
     const [proyectos, setProyectos] = useState<Proyecto[]>([]);
+
+    // isLoading: loading del GET principal (tarifas)
+    // isSaving: loading del POST/PUT/DELETE
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
 
-    // Estados del formulario
+    /* ============================
+       ------------- FORMULARIO (MODAL) -------------
+    ============================ */
+    // empSeleccionado: id_empleado elegido en el select
+    // projSeleccionado: id_proyecto elegido en el select
+    // precio: tarifa introducida por hora (string para controlar input number fácilmente)
     const [empSeleccionado, setEmpSeleccionado] = useState("");
     const [projSeleccionado, setProjSeleccionado] = useState("");
     const [precio, setPrecio] = useState("");
+    const [fechaInicio, setFechaInicio] = useState(""); // nueva fecha de inicio
 
-    // Errores de validacion
-    const [errores, setErrores] = useState<{ empleado?: string; proyecto?: string; precio?: string; general?: string }>({});
+    // errores: mensajes de validación por campo y error general del servidor
+    const [errores, setErrores] = useState<{
+        empleado?: string;
+        proyecto?: string;
+        precio?: string;
+        general?: string;
+    }>({});
 
+    // ------------- CONFIG API -------------
+    // URL base del backend (configurable con NEXT_PUBLIC_API_URL o por defecto localhost:8000)
     const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-    // Cargar tarifas
+    /* ============================================================
+       ------------- CARGA DE DATOS -------------
+    ============================================================ */
+
+    // Carga tarifas desde el backend (GET /api/tarifas)
+    // - activa loading
+    // - si OK guarda el listado
+    // - apaga loading al final
     const cargarTarifas = async () => {
         try {
             setIsLoading(true);
@@ -68,66 +123,89 @@ export default function HistorialProyectos() { // Cambio de nombre del component
         }
     };
 
-    // Cargar empleados
+    // Carga empleados desde el backend (GET /api/empleados)
+    // Se usa para:
+    // - rellenar el selector de empleados
+    // - traducir el id_empleado a nombre y apellidos en la tabla
     const cargarEmpleados = async () => {
         try {
             const res = await fetch(`${API_URL}/api/empleados`);
-            if (res.ok) {
-                const data = await res.json();
-                setEmpleados(data);
-            }
+            if (res.ok) setEmpleados(await res.json());
         } catch (error) {
             console.error("Error cargando empleados:", error);
         }
     };
 
-    // Cargar proyectos
+    // Carga proyectos desde el backend (GET /api/proyectos)
+    // Se usa para:
+    // - rellenar el selector de proyectos
+    // - traducir el id_proyecto a nombre_proyecto en la tabla
     const cargarProyectos = async () => {
         try {
             const res = await fetch(`${API_URL}/api/proyectos`);
-            if (res.ok) {
-                const data = await res.json();
-                setProyectos(data);
-            }
+            if (res.ok) setProyectos(await res.json());
         } catch (error) {
             console.error("Error cargando proyectos:", error);
         }
     };
 
-    // Cargar datos al iniciar
+    // ------------- EFECTO INICIAL -------------
+    // Carga tarifas, empleados y proyectos al entrar en la página
     useEffect(() => {
         cargarTarifas();
         cargarEmpleados();
         cargarProyectos();
     }, []);
 
-    // Filtrar tarifas por busqueda
-    const tarifasFiltradas = tarifas.filter(tarifa => {
-        const empleadoObj = empleados.find(e => e.id_empleado === tarifa.empleado);
-        const nombreEmpleado = empleadoObj ? `${empleadoObj.nombre} ${empleadoObj.apellidos}` : tarifa.empleado;
+    /* ============================================================
+       ------------- FILTRADO -------------
+    ============================================================ */
+    // Filtra la tabla por:
+    // - nombre completo del empleado (si existe en la lista empleados)
+    // - nombre del proyecto (si existe en la lista proyectos)
+    // Si no se encuentra el objeto asociado, usa el ID como fallback
+    const tarifasFiltradas = tarifas.filter(t => {
+        const empleadoObj = empleados.find(e => e.id_empleado === t.empleado);
+        const nombreEmpleado = empleadoObj
+            ? `${empleadoObj.nombre} ${empleadoObj.apellidos}`
+            : t.empleado;
 
-        const proyectoObj = proyectos.find(p => p.id_proyecto === tarifa.proyecto);
-        const nombreProyecto = proyectoObj ? proyectoObj.nombre_proyecto : tarifa.proyecto;
+        const proyectoObj = proyectos.find(p => p.id_proyecto === t.proyecto);
+        const nombreProyecto = proyectoObj
+            ? proyectoObj.nombre_proyecto
+            : t.proyecto;
 
-        return nombreEmpleado.toLowerCase().includes(searchTerm.toLowerCase()) ||
-               nombreProyecto.toLowerCase().includes(searchTerm.toLowerCase());
+        return (
+            nombreEmpleado.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            nombreProyecto.toLowerCase().includes(searchTerm.toLowerCase())
+        );
     });
 
-    // Guardar tarifa
+    /* ============================================================
+       ------------- CREAR / EDITAR (GUARDAR) -------------
+    ============================================================ */
+    // Guarda una tarifa:
+    // - valida empleado, proyecto y precio > 0
+    // - si modoEdicion: usa PUT; si no: POST
+    // - envía payload alineado con el backend (/api/tarifas)
+    // - en creación usa la fecha actual como fec_inicio
+    // - en edición mantiene la fecha_inicio original para identificar el registro
     const handleGuardarTarifa = async () => {
-        const nuevosErrores: { empleado?: string; proyecto?: string; precio?: string; general?: string } = {};
+        const nuevosErrores: any = {};
+        if (!modoEdicion && !fechaInicio) {
+        nuevosErrores.general = "Debes seleccionar una fecha de inicio.";
+        }
 
+        // Validación de selección de empleado/proyecto
         if (!empSeleccionado) nuevosErrores.empleado = "Debes seleccionar un empleado.";
         if (!projSeleccionado) nuevosErrores.proyecto = "Debes seleccionar un proyecto.";
 
+        // Validación del precio: numérico y mayor que 0
         const precioNum = parseFloat(precio);
         if (!precio) nuevosErrores.precio = "Introduce un precio.";
         else if (isNaN(precioNum) || precioNum <= 0) nuevosErrores.precio = "El precio debe ser mayor que 0.";
 
-        // Evitar duplicados
-        const existeDuplicado = tarifas.find(t => t.empleado === empSeleccionado && t.proyecto === projSeleccionado);
-        if (existeDuplicado) nuevosErrores.general = "Este empleado ya tiene una tarifa para este proyecto.";
-
+        // Si hay errores, se muestran en el modal y se corta el guardado
         if (Object.keys(nuevosErrores).length > 0) {
             setErrores(nuevosErrores);
             return;
@@ -136,45 +214,118 @@ export default function HistorialProyectos() { // Cambio de nombre del component
         try {
             setIsSaving(true);
             setErrores({});
+
+            // Define método HTTP en base a si estamos creando o editando
+            const method = modoEdicion ? "PUT" : "POST";
+
+            // Envía al backend la asignación tarifa:
+            // NOTA: aquí hay valores fijos (id_sociedad "01" e id_cliente "CYC")
+            // Si más adelante quieres hacerlo dinámico, vendrían del proyecto o del selector.
             const res = await fetch(`${API_URL}/api/tarifas`, {
-                method: "POST",
+                method,
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     id_sociedad: "01",
                     id_empleado: empSeleccionado,
                     id_cliente: "CYC",
                     id_proyecto: projSeleccionado,
-                    fec_inicio: new Date().toISOString().split("T")[0],
+                    fec_inicio: modoEdicion ? tarifaEditando?.fecha_inicio : fechaInicio,
                     tarifa: precioNum
-                }),
+                })
             });
 
+            // Si OK: cierra modal y recarga listado
             if (res.ok) {
-                alert("Tarifa guardada con exito");
                 cerrarModal();
                 cargarTarifas();
             } else {
+                // Si KO: muestra error del servidor en el modal
                 const errorData = await res.json();
-                setErrores({ general: errorData.detail || "Error al guardar en el servidor." });
+                setErrores({ general: errorData.detail || "Error del servidor." });
             }
-        } catch (error) {
-            console.error("Error guardando tarifa:", error);
+
+        } catch {
             setErrores({ general: "No se pudo conectar con el servidor." });
         } finally {
             setIsSaving(false);
         }
     };
 
+    /* ============================================================
+       ------------- EDITAR -------------
+    ============================================================ */
+    // Entra en modo edición:
+    // - guarda el registro que se va a editar
+    // - precarga el formulario (empleado, proyecto, tarifa)
+    // - abre el modal
+    // - bloquea los selects en el modal (no se cambian empleado/proyecto en edición)
+    const handleEditar = (tarifa: TarifaDB) => {
+        setModoEdicion(true);
+        setTarifaEditando(tarifa);
+
+        setEmpSeleccionado(tarifa.empleado);
+        setProjSeleccionado(tarifa.proyecto);
+        setPrecio(tarifa.tarifa.toString());
+
+        setIsModalOpen(true);
+    };
+
+    /* ============================================================
+       ------------- ELIMINAR -------------
+    ============================================================ */
+    // Elimina una tarifa:
+    // - pide confirmación
+    // - construye query params con claves identificativas del registro
+    // - llama al backend con DELETE /api/tarifas?id_empleado=...&id_proyecto=...&fec_inicio=...
+    // - si OK recarga listado
+    const handleEliminar = async (tarifa: TarifaDB) => {
+        if (!confirm("¿Seguro que quieres eliminar esta tarifa?")) return;
+
+        try {
+            const params = new URLSearchParams({
+                id_empleado: tarifa.empleado,
+                id_proyecto: tarifa.proyecto,
+                fec_inicio: tarifa.fecha_inicio
+            });
+
+            const res = await fetch(`${API_URL}/api/tarifas?${params}`, { method: "DELETE" });
+            if (res.ok) cargarTarifas();
+        } catch (error) {
+            console.error("Error eliminando:", error);
+        }
+    };
+
+    /* ============================================================
+       ------------- CERRAR MODAL -------------
+    ============================================================ */
+    // Resetea el estado del modal:
+    // - cierra ventana
+    // - sale de modo edición
+    // - limpia registro en edición
+    // - limpia errores
+    // - resetea campos del formulario
     const cerrarModal = () => {
+        setFechaInicio("");
         setIsModalOpen(false);
+        setModoEdicion(false);
+        setTarifaEditando(null);
         setErrores({});
         setEmpSeleccionado("");
         setProjSeleccionado("");
         setPrecio("");
     };
 
+    /* ============================================================
+       ------------- RENDER -------------
+    ============================================================ */
+    // UI principal:
+    // - cabecera + botón asignar
+    // - buscador
+    // - tabla con acciones (editar/eliminar) visibles en hover
+    // - modal para crear/editar con validaciones y feedback de errores
     return (
         <div className="p-10 max-w-7xl mx-auto relative">
+
             {/* Cabecera */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                 <div>
@@ -182,11 +333,10 @@ export default function HistorialProyectos() { // Cambio de nombre del component
                     <p className="text-gray-500 mt-1">Visualiza y gestiona las tarifas de cada empleado por proyecto.</p>
                 </div>
                 <button
-                    onClick={() => setIsModalOpen(true)}
+                    onClick={() => { setIsModalOpen(true); setModoEdicion(false); }}
                     className="bg-quality-red hover:bg-[#C20017] text-white px-5 py-2.5 rounded-lg font-medium transition-all shadow-md flex items-center gap-2"
                 >
-                    <Plus size={18} />
-                    Asignar Tarifa
+                    <Plus size={18} /> Asignar Proyecto
                 </button>
             </div>
 
@@ -199,20 +349,20 @@ export default function HistorialProyectos() { // Cambio de nombre del component
                         placeholder="Buscar por empleado o proyecto..."
                         className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-quality-red/20 focus:border-quality-red transition-all"
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={e => setSearchTerm(e.target.value)}
                     />
                 </div>
             </div>
 
-            {/* Tabla de tarifas */}
+            {/* Tabla */}
             <div className="bg-white border border-gray-200 rounded-b-xl overflow-hidden shadow-sm">
                 <table className="w-full text-left border-collapse">
                     <thead>
                         <tr className="bg-gray-50/50 border-b border-gray-200 text-xs uppercase tracking-wider text-gray-500 font-semibold">
                             <th className="px-6 py-4">Empleado</th>
                             <th className="px-6 py-4">Proyecto Asignado</th>
+                            <th className="px-6 py-4">Fecha Inicio</th>
                             <th className="px-6 py-4">Tarifa (€/Hora)</th>
-                            <th className="px-6 py-4">Estado</th>
                             <th className="px-6 py-4 text-right">Acciones</th>
                         </tr>
                     </thead>
@@ -233,29 +383,41 @@ export default function HistorialProyectos() { // Cambio de nombre del component
                                 </td>
                             </tr>
                         ) : (
-                            tarifasFiltradas.map(tarifa => {
-                                const empleadoObj = empleados.find(e => e.id_empleado === tarifa.empleado);
-                                const nombreEmpleado = empleadoObj ? `${empleadoObj.nombre} ${empleadoObj.apellidos}` : tarifa.empleado;
+                            tarifasFiltradas.map(t => {
+                                // Resuelve el nombre del empleado desde la lista (fallback al ID)
+                                const empleadoObj = empleados.find(e => e.id_empleado === t.empleado);
+                                const nombreEmpleado = empleadoObj ? `${empleadoObj.nombre} ${empleadoObj.apellidos}` : t.empleado;
 
-                                const proyectoObj = proyectos.find(p => p.id_proyecto === tarifa.proyecto);
-                                const nombreProyecto = proyectoObj ? proyectoObj.nombre_proyecto : tarifa.proyecto;
+                                // Resuelve el nombre del proyecto desde la lista (fallback al ID)
+                                const proyectoObj = proyectos.find(p => p.id_proyecto === t.proyecto);
+                                const nombreProyecto = proyectoObj ? proyectoObj.nombre_proyecto : t.proyecto;
 
                                 return (
-                                    <tr key={`${tarifa.id_sociedad}-${tarifa.empleado}-${tarifa.proyecto}-${tarifa.fecha_inicio}`} className="hover:bg-gray-50/50 transition-colors group">
+                                    <tr key={`${t.id_sociedad}-${t.empleado}-${t.proyecto}-${t.fecha_inicio}`} className="hover:bg-gray-50/50 transition-colors group">
                                         <td className="px-6 py-4 font-bold text-quality-dark">{nombreEmpleado}</td>
                                         <td className="px-6 py-4 text-gray-600">{nombreProyecto}</td>
-                                        <td className="px-6 py-4">
-                                            <span className="font-mono text-base font-semibold text-quality-dark bg-gray-50 px-3 py-1.5 rounded-md border border-gray-200">
-                                                {tarifa.tarifa.toFixed(2)} €
-                                            </span>
+
+                                        {/* Fecha de inicio de la tarifa */}
+                                        <td className="px-6 py-4 text-gray-500 font-mono">
+                                            {t.fecha_inicio}
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Activa</span>
-                                        </td>
+
+                                        <td className="px-6 py-4 font-mono">{t.tarifa.toFixed(2)} €</td>
                                         <td className="px-6 py-4 text-right">
+                                            {/* Botones en hover de fila */}
                                             <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Edit size={16} /></button>
-                                                <button className="p-2 text-gray-400 hover:text-quality-red hover:bg-red-50 rounded-lg"><Trash2 size={16} /></button>
+                                                <button
+                                                    className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                                                    onClick={() => handleEditar(t)}
+                                                >
+                                                    <Edit size={16} />
+                                                </button>
+                                                <button
+                                                    className="p-2 text-gray-400 hover:text-quality-red hover:bg-red-50 rounded-lg"
+                                                    onClick={() => handleEliminar(t)}
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -272,7 +434,7 @@ export default function HistorialProyectos() { // Cambio de nombre del component
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden transform transition-all">
                         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                             <h3 className="text-lg font-bold text-quality-dark flex items-center gap-2">
-                                <CircleDollarSign size={20} className="text-quality-red" /> Asignar Nueva Tarifa
+                                <CircleDollarSign size={20} className="text-quality-red" /> {modoEdicion ? "Editar Tarifa" : "Asignar Nueva Tarifa"}
                             </h3>
                             <button onClick={cerrarModal} className="text-gray-400 hover:text-gray-700 transition-colors p-1 rounded-md hover:bg-gray-200">
                                 <X size={20} />
@@ -280,6 +442,20 @@ export default function HistorialProyectos() { // Cambio de nombre del component
                         </div>
 
                         <div className="p-6 space-y-5">
+                            {/* Fecha de Inicio */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Inicio</label>
+                                <input
+                                    type="date"
+                                    value={fechaInicio}
+                                    onChange={e => { setFechaInicio(e.target.value); setErrores({ ...errores, general: undefined }); }}
+                                    className={`w-full border rounded-lg px-3 py-2 outline-none transition-colors ${
+                                        errores.general ? 'border-quality-red focus:ring-quality-red/20' : 'border-gray-300 focus:ring-quality-dark/20 focus:border-quality-dark'
+                                    }`}
+                                    disabled={modoEdicion} // opcional: si quieres bloquear en edición
+                                />
+                            </div>
+                            {/* Error general del modal (servidor/validación general) */}
                             {errores.general && (
                                 <div className="bg-red-50 border-l-4 border-quality-red p-3 rounded-r-md flex items-start gap-3">
                                     <AlertCircle className="text-quality-red shrink-0 mt-0.5" size={18} />
@@ -287,13 +463,14 @@ export default function HistorialProyectos() { // Cambio de nombre del component
                                 </div>
                             )}
 
-                            {/* Seleccion de empleado */}
+                            {/* Empleado */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Empleado</label>
                                 <select
                                     value={empSeleccionado}
-                                    onChange={(e) => { setEmpSeleccionado(e.target.value); setErrores({ ...errores, empleado: undefined, general: undefined }); }}
+                                    onChange={e => { setEmpSeleccionado(e.target.value); setErrores({ ...errores, empleado: undefined, general: undefined }); }}
                                     className={`w-full border rounded-lg px-3 py-2 outline-none bg-white transition-colors ${errores.empleado ? 'border-quality-red focus:ring-quality-red/20' : 'border-gray-300 focus:ring-quality-dark/20 focus:border-quality-dark'}`}
+                                    disabled={modoEdicion} // no se puede cambiar en edición
                                 >
                                     <option value="">Selecciona un empleado...</option>
                                     {empleados.map(e => (
@@ -303,13 +480,14 @@ export default function HistorialProyectos() { // Cambio de nombre del component
                                 {errores.empleado && <p className="text-quality-red text-xs mt-1.5 font-medium">{errores.empleado}</p>}
                             </div>
 
-                            {/* Seleccion de proyecto */}
+                            {/* Proyecto */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Proyecto</label>
                                 <select
                                     value={projSeleccionado}
-                                    onChange={(e) => { setProjSeleccionado(e.target.value); setErrores({ ...errores, proyecto: undefined, general: undefined }); }}
+                                    onChange={e => { setProjSeleccionado(e.target.value); setErrores({ ...errores, proyecto: undefined, general: undefined }); }}
                                     className={`w-full border rounded-lg px-3 py-2 outline-none bg-white transition-colors ${errores.proyecto ? 'border-quality-red focus:ring-quality-red/20' : 'border-gray-300 focus:ring-quality-dark/20 focus:border-quality-dark'}`}
+                                    disabled={modoEdicion} // no se puede cambiar en edición
                                 >
                                     <option value="">Selecciona un proyecto...</option>
                                     {proyectos.map(p => (
@@ -330,12 +508,12 @@ export default function HistorialProyectos() { // Cambio de nombre del component
                                         type="number"
                                         step="0.01"
                                         value={precio}
-                                        onChange={(e) => { setPrecio(e.target.value); setErrores({ ...errores, precio: undefined }); }}
+                                        onChange={e => { setPrecio(e.target.value); setErrores({ ...errores, precio: undefined }); }}
                                         className={`w-full pl-8 pr-4 py-2 border rounded-lg outline-none font-mono transition-colors ${errores.precio ? 'border-quality-red focus:ring-quality-red/20' : 'border-gray-300 focus:ring-quality-dark/20 focus:border-quality-dark'}`}
                                         placeholder="0.00"
                                     />
+                                    {errores.precio && <p className="text-quality-red text-xs mt-1.5 font-medium">{errores.precio}</p>}
                                 </div>
-                                {errores.precio && <p className="text-quality-red text-xs mt-1.5 font-medium">{errores.precio}</p>}
                             </div>
                         </div>
 

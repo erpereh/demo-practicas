@@ -1,4 +1,7 @@
 "use client";
+
+// ------------- IMPORTS -------------
+// Hooks de React para estado/ciclo de vida + iconos Lucide para la UI
 import { useEffect, useState } from "react";
 import {
   Search,
@@ -11,6 +14,10 @@ import {
   Edit,
 } from "lucide-react";
 
+// ------------- TIPO DE DATOS (DTO) -------------
+// Tipado del objeto Empleado tal y como lo devuelve el backend (/api/empleados/).
+// OJO: email y telefono están tipados como opcionales aquí para UI, pero deben existir en backend
+// y en la tabla si quieres que se guarden de verdad (si no, el backend los ignorará o fallará).
 type EmpleadoAPI = {
   id_empleado: string;
   id_empleado_tracker: string;
@@ -21,6 +28,11 @@ type EmpleadoAPI = {
   telefono?: string | null;   // añadido campo opcional teléfono
 };
 
+// ------------- PARSEO DE ERRORES FASTAPI -------------
+// Convierte la respuesta de error de FastAPI en un mensaje legible:
+// - Si detail es un array (errores de validación por campo), concatena los msg.
+// - Si detail es texto, lo devuelve.
+// - Si no se puede parsear, devuelve "Error {status}".
 const parseFastApiError = async (res: Response) => {
   try {
     const data = await res.json();
@@ -33,16 +45,32 @@ const parseFastApiError = async (res: Response) => {
 };
 
 export default function EmpleadosPage() {
+  // ------------- CONFIG API -------------
+  // URL base del backend (configurable con NEXT_PUBLIC_API_URL o por defecto 127.0.0.1:8000)
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
+  // ------------- ESTADO UI (BÚSQUEDA Y MODAL) -------------
+  // searchTerm: texto del input de búsqueda
+  // isModalOpen: controla si está abierto el modal de crear/editar
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // ------------- ESTADO DATOS (LISTADO) -------------
+  // empleados: lista desde el backend
+  // isLoading: loading del GET
+  // isSaving: loading del POST/PUT
   const [empleados, setEmpleados] = useState<EmpleadoAPI[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  // formulario
+  // ------------- ESTADO FORMULARIO (MODAL) -------------
+  // Campos alineados con tu tabla real EMPLEADOS:
+  // - idEmpleado -> ID_EMPLEADO (DNI/NIE)
+  // - tracker -> ID_EMPLEADO_TRACKER
+  // - nombre -> NOMBRE
+  // - apellidos -> APELLIDOS
+  // - matricula -> MATRICULA
+  // email/telefono: añadidos en el front (deben existir en backend si se quieren persistir)
   const [idEmpleado, setIdEmpleado] = useState(""); // DNI/NIE
   const [tracker, setTracker] = useState(""); // ID_EMPLEADO_TRACKER
   const [nombre, setNombre] = useState("");
@@ -51,7 +79,9 @@ export default function EmpleadosPage() {
   const [email, setEmail] = useState("");       // añadido input email
   const [telefono, setTelefono] = useState(""); // añadido input teléfono
 
-  // errores
+  // ------------- ESTADO ERRORES -------------
+  // erroresGlobal: errores de listado (se muestran fuera del modal)
+  // erroresModal: errores del formulario (por campo y/o general dentro del modal)
   const [erroresGlobal, setErroresGlobal] = useState<{ general?: string }>({});
   const [erroresModal, setErroresModal] = useState<{
     id_empleado?: string;
@@ -63,10 +93,21 @@ export default function EmpleadosPage() {
     general?: string;
   }>({});
 
-  // modo edición
+  // ------------- MODO EDICIÓN -------------
+  // editandoId: si tiene valor, el modal está editando ese ID_EMPLEADO
+  // esEdicion: booleano derivado para simplificar condiciones
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const esEdicion = editandoId !== null;
 
+  // ======================
+  // ------------- (1) CARGAR EMPLEADOS -------------
+  // ======================
+  // GET /api/empleados/:
+  // - activa loading
+  // - limpia erroresGlobal
+  // - si OK guarda lista en state
+  // - si KO muestra error global
+  // - desactiva loading al final
   const cargarEmpleados = async () => {
     try {
       setIsLoading(true);
@@ -86,11 +127,15 @@ export default function EmpleadosPage() {
     }
   };
 
+  // ------------- EFECTO INICIAL -------------
+  // Carga el listado al entrar en la página
   useEffect(() => {
     cargarEmpleados();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ------------- FILTRADO EN FRONT -------------
+  // Filtra empleados por nombre completo o por ID (DNI/NIE)
   const empleadosFiltrados = empleados.filter((e) => {
     const full = `${e.nombre} ${e.apellidos}`.toLowerCase();
     return (
@@ -99,8 +144,15 @@ export default function EmpleadosPage() {
     );
   });
 
-  // ---------- MODAL HELPERS ----------
+  // ======================
+  // ------------- (2) MODAL HELPERS -------------
+  // ======================
 
+  // Abre el modal en modo creación:
+  // - desactiva edición
+  // - limpia errores del modal
+  // - resetea formulario
+  // - abre modal
   const abrirModalNuevo = () => {
     setEditandoId(null);
     setErroresModal({});
@@ -114,6 +166,10 @@ export default function EmpleadosPage() {
     setIsModalOpen(true);
   };
 
+  // Abre el modal en modo edición:
+  // - guarda el ID que se edita
+  // - precarga formulario con valores del empleado seleccionado
+  // - abre modal
   const abrirModalEditar = (emp: EmpleadoAPI) => {
     setEditandoId(emp.id_empleado);
     setErroresModal({});
@@ -127,6 +183,11 @@ export default function EmpleadosPage() {
     setIsModalOpen(true);
   };
 
+  // Cierra el modal:
+  // - cierra ventana
+  // - limpia errores del modal
+  // - resetea edición
+  // - resetea formulario
   const cerrarModal = () => {
     setIsModalOpen(false);
     setErroresModal({});
@@ -140,12 +201,21 @@ export default function EmpleadosPage() {
     setTelefono("");   // reiniciado
   };
 
-  // ---------- GUARDAR (CREAR / EDITAR) ----------
-
+  // ======================
+  // ------------- (3) GUARDAR (CREAR / EDITAR) -------------
+  // ======================
+  // - valida campos obligatorios (id, tracker, nombre, apellidos)
+  // - valida formatos (DNI/NIE simple, email, teléfono numérico)
+  // - si creación -> POST /api/empleados/
+  // - si edición -> PUT /api/empleados/{id_empleado}
+  // - si OK -> cierra modal y recarga listado
+  // - si KO -> muestra error dentro del modal
   const handleGuardarEmpleado = async () => {
     const nuevos: any = {};
 
-    // Validación DNI/NIE
+    // Validación DNI/NIE (formato básico en front):
+    // - exige 7 u 8 dígitos + letra
+    // (la validación real de letra correcta la hace el backend)
     const dniRegex = /^[0-9]{7,8}[A-Z]$/i;
     if (!idEmpleado.trim()) {
       nuevos.id_empleado = "El ID (DNI/NIE) es obligatorio.";
@@ -153,13 +223,15 @@ export default function EmpleadosPage() {
       nuevos.id_empleado = "Formato de DNI/NIE inválido.";
     }
 
+    // Tracker obligatorio (enlaza con la app de fichajes)
     if (!tracker.trim()) nuevos.tracker = "El tracker es obligatorio.";
 
-    // Validación nombre/apellidos
+    // Nombre y apellidos obligatorios
     if (!nombre.trim()) nuevos.nombre = "El nombre es obligatorio.";
     if (!apellidos.trim()) nuevos.apellidos = "Los apellidos son obligatorios.";
 
-    // Validación email
+    // Validación email (si se informa):
+    // - comprueba patrón usuario@dominio.ext
     if (email.trim()) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email.trim())) {
@@ -167,7 +239,8 @@ export default function EmpleadosPage() {
       }
     }
 
-    // Validación teléfono (solo números)
+    // Validación teléfono (si se informa):
+    // - solo permite números
     if (telefono.trim()) {
       const telefonoRegex = /^[0-9]+$/;
       if (!telefonoRegex.test(telefono.trim())) {
@@ -175,6 +248,7 @@ export default function EmpleadosPage() {
       }
     }
 
+    // Si hay errores, se muestran en el modal y se corta el guardado
     if (Object.keys(nuevos).length) {
       setErroresModal(nuevos);
       return;
@@ -185,7 +259,10 @@ export default function EmpleadosPage() {
       setErroresModal({});
 
       if (!esEdicion) {
-        // CREAR
+        // ------------- CREAR (POST) -------------
+        // Construye payload para backend:
+        // - opcionales se envían como null si están vacíos
+        // - email/telefono se envían, pero deben existir en backend para persistir
         const payload = {
           id_empleado: idEmpleado,
           id_empleado_tracker: tracker,
@@ -207,7 +284,10 @@ export default function EmpleadosPage() {
           return;
         }
       } else if (editandoId) {
-        // EDITAR
+        // ------------- EDITAR (PUT) -------------
+        // En edición:
+        // - el ID no se cambia (va bloqueado en el input)
+        // - se actualizan tracker, nombre, apellidos y opcionales
         const payloadUpdate = {
           id_empleado_tracker: tracker,
           nombre,
@@ -232,6 +312,9 @@ export default function EmpleadosPage() {
         }
       }
 
+      // Si todo OK:
+      // - cierra modal
+      // - recarga listado para reflejar cambios en tabla
       cerrarModal();
       await cargarEmpleados();
     } catch {
@@ -241,8 +324,13 @@ export default function EmpleadosPage() {
     }
   };
 
-  // ---------- ARCHIVAR (BORRAR) ----------
-
+  // ======================
+  // ------------- (4) ARCHIVAR (BORRAR) -------------
+  // ======================
+  // Archiva/elimina un empleado:
+  // - pide confirmación
+  // - PATCH /api/empleados/{id}/archivar
+  // - si OK recarga listado
   const handleArchivar = async (id_empleado: string) => {
     if (!confirm(`¿Archivar (eliminar) el empleado ${id_empleado}?`)) return;
 
@@ -260,7 +348,15 @@ export default function EmpleadosPage() {
     await cargarEmpleados();
   };
 
-  // ---------- RENDER ----------
+  // ======================
+  // ------------- RENDER -------------
+  // ======================
+  // UI principal:
+  // - cabecera + botón nuevo
+  // - error global de listado
+  // - buscador
+  // - tabla con acciones en hover (editar/archivar)
+  // - modal crear/editar con errores por campo y error general
   return (
     <div className="p-10 max-w-7xl mx-auto relative">
       {/* CABECERA */}
@@ -326,6 +422,7 @@ export default function EmpleadosPage() {
           </thead>
 
           <tbody className="divide-y divide-gray-100">
+            {/* Estado: cargando */}
             {isLoading ? (
               <tr>
                 <td
@@ -341,7 +438,8 @@ export default function EmpleadosPage() {
                   </div>
                 </td>
               </tr>
-            ) : empleadosFiltrados.length === 0 ? (
+            ) : /* Estado: sin datos */
+            empleadosFiltrados.length === 0 ? (
               <tr>
                 <td
                   colSpan={5}
@@ -351,6 +449,7 @@ export default function EmpleadosPage() {
                 </td>
               </tr>
             ) : (
+              // Estado: lista con filas
               empleadosFiltrados.map((e) => (
                 <tr
                   key={e.id_empleado}
@@ -368,6 +467,8 @@ export default function EmpleadosPage() {
                   <td className="px-6 py-4 text-gray-600">
                     {e.matricula || "-"}
                   </td>
+
+                  {/* Acciones ocultas hasta hover de fila (group-hover) */}
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
@@ -418,6 +519,7 @@ export default function EmpleadosPage() {
                 </div>
               )}
 
+              {/* Campo ID Empleado (bloqueado en edición) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   ID Empleado (DNI/NIE)
@@ -444,6 +546,7 @@ export default function EmpleadosPage() {
                 )}
               </div>
 
+              {/* Tracker */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Código App Fichaje (Tracker)
@@ -465,6 +568,7 @@ export default function EmpleadosPage() {
                 )}
               </div>
 
+              {/* Nombre */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Nombre
@@ -486,6 +590,7 @@ export default function EmpleadosPage() {
                 )}
               </div>
 
+              {/* Apellidos */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Apellidos
@@ -507,6 +612,7 @@ export default function EmpleadosPage() {
                 )}
               </div>
 
+              {/* Matrícula */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Matrícula (opcional)

@@ -30,6 +30,11 @@ interface PreviewFactura {
   lineas: LineaFactura[];
   alertas: string[];
 }
+
+interface Cliente {
+  id_cliente: number;
+  n_cliente: string;
+}
 //------------------------
 
 export default function FacturacionPage() {
@@ -49,6 +54,9 @@ export default function FacturacionPage() {
   const [mes, setMes] = useState<number | "">("");
   const [anio, setAnio] = useState<number | "">("");
   const [cliente, setCliente] = useState<string>("");
+
+  //Constante para la lista de clientes
+  const [clientes, setClientes] = useState<Cliente[]>([])
 
   const [previewData, setPreviewData] = useState<PreviewFactura | null>(null);
   const [generadaData, setGeneradaData] = useState<Factura | null>(null);
@@ -78,6 +86,13 @@ export default function FacturacionPage() {
   useEffect(() => {
     cargarFacturas();
   }, []);
+
+  //Fetch a la API -> Clientes
+  useEffect(() => {
+    fetch("http://127.0.0.1:8000/api/clientes")
+      .then(res => res.json())
+      .then(data => setClientes(data))
+  }, [])
 
 
   // ======================
@@ -230,9 +245,12 @@ export default function FacturacionPage() {
             className="border p-2 rounded w-56"
           >
             <option value="">Seleccionar Cliente</option>
-            <option value="CYC">CYC</option>
-            <option value="ATOS">ATOS</option>
-            <option value="META4">META4</option>
+
+            {clientes.map((c) => (
+              <option key={c.id_cliente} value={c.id_cliente}>
+                {c.n_cliente}
+              </option>
+            ))}
           </select>
 
           <button

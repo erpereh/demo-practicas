@@ -4,7 +4,9 @@ Router de gestión de Tarifas (Histórico de Proyecto).
 Este módulo expone endpoints para:
 
 - Listar todas las tarifas almacenadas en base de datos.
-- Asignar una nueva tarifa a un empleado en un proyecto con fecha de inicio.
+- Asignar una nueva tarifa.
+- Actualizar una tarifa existente.
+- Eliminar una tarifa existente.
 
 La entidad HistProyecto actúa como histórico de tarifas por
 empleado/proyecto con fecha efectiva (fec_inicio).
@@ -15,10 +17,55 @@ Tag OpenAPI: Tarifas
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import date
+from pydantic import BaseModel
 
 from app.models.hist_proyecto import HistProyecto
 from app.database import get_db
+
+
+# ============================================================
+# MODELOS Pydantic (Entrada de datos)
+# ============================================================
+
+class TarifaCreate(BaseModel):
+    """
+    Modelo para crear una nueva tarifa.
+    FastAPI valida automáticamente:
+    - Tipos
+    - Campos obligatorios
+    - Conversión de fecha ISO a date
+    """
+
+    id_sociedad: str
+    id_empleado: str
+    id_cliente: str
+    id_proyecto: str
+    fec_inicio: date
+    tarifa: float
+
+
+class TarifaUpdate(BaseModel):
+    """
+    Modelo para actualizar una tarifa existente.
+
+    Se usa la clave lógica:
+        (id_empleado, id_proyecto, fec_inicio)
+
+    para localizar el registro a modificar.
+    """
+
+    id_sociedad: str
+    id_empleado: str
+    id_cliente: str
+    id_proyecto: str
+    fec_inicio: date
+    tarifa: float
+
+
+# ============================================================
+# CONFIGURACIÓN DEL ROUTER
+# ============================================================
 
 router = APIRouter(
     prefix="/api",
@@ -36,18 +83,7 @@ def listar_tarifas(db: Session = Depends(get_db)):
     Recupera todas las tarifas registradas en la tabla HistProyecto.
 
     Returns:
-        list[dict]: Lista de tarifas con los siguientes campos:
-            - id_sociedad
-            - empleado
-            - cliente
-            - proyecto
-            - tarifa (float)
-            - fecha_inicio (string ISO 8601)
-
-    Notas técnicas:
-        - Se transforma el campo Numeric 'tarifa' a float para compatibilidad JSON.
-        - Se convierte el campo Date 'fec_inicio' a formato ISO.
-        - Actualmente no se aplican filtros ni paginación.
+        list[dict]: Lista de tarifas en formato JSON.
     """
 
     registros = db.query(HistProyecto).all()
@@ -66,51 +102,26 @@ def listar_tarifas(db: Session = Depends(get_db)):
 
 
 # ============================================================
-# ASIGNAR TARIFA
+# CREAR TARIFA
 # ============================================================
 
 @router.post("/tarifas")
 def asignar_tarifa(
-    id_sociedad: str,
-    id_empleado: str,
-    id_cliente: str,
-    id_proyecto: str,
-    fec_inicio: str,
-    tarifa: float,
+    data: TarifaCreate,
     db: Session = Depends(get_db)
 ):
     """
-    Inserta una nueva tarifa en el histórico (HistProyecto).
+    Inserta una nueva tarifa en el histórico.
 
-    Parámetros:
-        id_sociedad (str): Identificador de la sociedad.
-        id_empleado (str): Identificador del empleado.
-        id_cliente (str): Identificador del cliente.
-        id_proyecto (str): Identificador del proyecto.
-        fec_inicio (str): Fecha en formato YYYY-MM-DD.
-        tarifa (float): Importe de la tarifa.
-
-    Validaciones:
-        - Conversión de fecha string a objeto date.
-        - Se evita duplicidad exacta por:
-            (id_empleado, id_proyecto, fec_inicio)
-
-    Raises:
-        HTTPException 400:
-            Si ya existe una tarifa con esa clave lógica.
-
-    Returns:
-        dict: Confirmación con los datos insertados.
+    Valida que no exista ya una tarifa con la misma:
+        (id_empleado, id_proyecto, fec_inicio)
     """
 
-    # Conversión de fecha a objeto date
-    fecha = datetime.strptime(fec_inicio, "%Y-%m-%d").date()
-
-    # Validación de duplicado lógico
+    # Validación de duplicidad lógica
     existe = db.query(HistProyecto).filter(
-        HistProyecto.id_empleado == id_empleado,
-        HistProyecto.id_proyecto == id_proyecto,
-        HistProyecto.fec_inicio == fecha
+        HistProyecto.id_empleado == data.id_empleado,
+        HistProyecto.id_proyecto == data.id_proyecto,
+        HistProyecto.fec_inicio == data.fec_inicio
     ).first()
 
     if existe:
@@ -119,14 +130,13 @@ def asignar_tarifa(
             detail="Ya existe una tarifa con esa fecha"
         )
 
-    # Creación del nuevo registro
     nueva = HistProyecto(
-        id_sociedad=id_sociedad,
-        id_empleado=id_empleado,
-        id_cliente=id_cliente,
-        id_proyecto=id_proyecto,
-        fec_inicio=fecha,
-        tarifa=tarifa
+        id_sociedad=data.id_sociedad,
+        id_empleado=data.id_empleado,
+        id_cliente=data.id_cliente,
+        id_proyecto=data.id_proyecto,
+        fec_inicio=data.fec_inicio,
+        tarifa=data.tarifa
     )
 
     db.add(nueva)
@@ -141,4 +151,91 @@ def asignar_tarifa(
         "id_proyecto": nueva.id_proyecto,
         "fecha_inicio": nueva.fec_inicio.isoformat(),
         "tarifa": float(nueva.tarifa)
+    }
+
+
+# ============================================================
+# ACTUALIZAR TARIFA
+# ============================================================
+
+@router.put("/tarifas")
+def actualizar_tarifa(
+    data: TarifaUpdate,
+    db: Session = Depends(get_db)
+):
+    """
+    Actualiza una tarifa existente.
+
+    Se localiza mediante:
+        (id_empleado, id_proyecto, fec_inicio)
+    """
+
+    registro = db.query(HistProyecto).filter(
+        HistProyecto.id_empleado == data.id_empleado,
+        HistProyecto.id_proyecto == data.id_proyecto,
+        HistProyecto.fec_inicio == data.fec_inicio
+    ).first()
+
+    if not registro:
+        raise HTTPException(
+            status_code=404,
+            detail="Tarifa no encontrada"
+        )
+
+    # Actualizamos campos modificables
+    registro.id_sociedad = data.id_sociedad
+    registro.id_cliente = data.id_cliente
+    registro.tarifa = data.tarifa
+
+    db.commit()
+    db.refresh(registro)
+
+    return {
+        "mensaje": "Tarifa actualizada correctamente",
+        "id_sociedad": registro.id_sociedad,
+        "id_empleado": registro.id_empleado,
+        "id_cliente": registro.id_cliente,
+        "id_proyecto": registro.id_proyecto,
+        "fecha_inicio": registro.fec_inicio.isoformat(),
+        "tarifa": float(registro.tarifa)
+    }
+
+
+# ============================================================
+# ELIMINAR TARIFA
+# ============================================================
+
+@router.delete("/tarifas")
+def eliminar_tarifa(
+    id_empleado: str,
+    id_proyecto: str,
+    fec_inicio: date,
+    db: Session = Depends(get_db)
+):
+    """
+    Elimina una tarifa existente.
+
+    Parámetros recibidos como query params:
+        - id_empleado
+        - id_proyecto
+        - fec_inicio
+    """
+
+    registro = db.query(HistProyecto).filter(
+        HistProyecto.id_empleado == id_empleado,
+        HistProyecto.id_proyecto == id_proyecto,
+        HistProyecto.fec_inicio == fec_inicio
+    ).first()
+
+    if not registro:
+        raise HTTPException(
+            status_code=404,
+            detail="Tarifa no encontrada"
+        )
+
+    db.delete(registro)
+    db.commit()
+
+    return {
+        "mensaje": "Tarifa eliminada correctamente"
     }

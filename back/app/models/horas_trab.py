@@ -1,13 +1,13 @@
 """
 Modelo ORM: HorasTrab
 
-Representa la tabla horas_trab en la base de datos.
+Representa la tabla HORAS_TRAB en la base de datos.
 
 Gestiona el registro diario de horas trabajadas por empleados
 en proyectos y clientes determinados.
 """
 
-from sqlalchemy import Column, Integer, String, Float, Date
+from sqlalchemy import Column, String, Float, Date
 from app.database import Base
 
 
@@ -18,34 +18,22 @@ class HorasTrab(Base):
     Registra el detalle de horas imputadas por empleado y día.
     """
 
-    __tablename__ = "horas_trab"
+    __tablename__ = "HORAS_TRAB"
 
-    # Identificador único del registro
-    id = Column(Integer, primary_key=True, index=True)
+    # 🔥 Clave primaria compuesta necesaria para SQLAlchemy
+    # (aunque la tabla real no tenga PK definida)
+    id_empleado = Column("ID_EMPLEADO", String(20), primary_key=True)
+    fecha = Column("FECHA", Date, primary_key=True)
+    id_proyecto = Column("ID_PROYECTO", String(50), primary_key=True)
 
     # Sociedad asociada
-    id_sociedad = Column(String(50), nullable=True)
-
-    # Empleado que imputa las horas
-    id_empleado = Column(String(50), index=True, nullable=False)
-
-    # Fecha del trabajo realizado
-    fecha = Column(Date, nullable=False)
+    id_sociedad = Column("ID_SOCIEDAD", String(10))
 
     # Cliente asociado
-    id_cliente = Column(String(50), nullable=True)
-
-    # Proyecto asociado
-    id_proyecto = Column(String(50), index=True, nullable=True)
+    id_cliente = Column("ID_CLIENTE", String(50))
 
     # Número de horas trabajadas en el día
-    horas_dia = Column(Float, nullable=False)
+    horas_dia = Column("HORAS_DIA", Float)
 
     # Descripción de la tarea realizada
-    desc_tarea = Column(String(255), nullable=True)
-
-    # Origen del registro (MANUAL, IMPORTADO, etc.)
-    origen = Column(String(50), default="MANUAL")
-
-    # Estado del registro (PENDIENTE, VALIDADO, etc.)
-    estado = Column(String(50), default="PENDIENTE")
+    desc_tarea = Column("DESC_TAREA", String(255))
