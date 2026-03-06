@@ -12,6 +12,7 @@ __pycache__/
 
 # VS Code
 .vscode/.vscode/
+.vscode/
 .next/dev/static/chunks/_a0ff3932._.js
 .next/dev/static/chunks/_a0ff3932._.js
 *.css
