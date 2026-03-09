@@ -23,6 +23,8 @@ type ClienteAPI = {
   cif: string;
   persona_contacto?: string | null;
   direccion?: string | null;
+  email?: string | null;          // CAMBIO: añadido campo email
+  telefono?: string | null;       // CAMBIO: añadido campo teléfono
 };
 
 // ------------- PARSEO DE ERRORES FASTAPI -------------
@@ -71,6 +73,8 @@ export default function ClientesPage() {
   const [cif, setCif] = useState("");
   const [contacto, setContacto] = useState(""); // persona_contacto
   const [direccion, setDireccion] = useState("");
+  const [email, setEmail] = useState("");         // CAMBIO: añadido campo email
+  const [telefono, setTelefono] = useState("");   // CAMBIO: añadido campo teléfono
 
   // ------------- ESTADO ERRORES -------------
   // erroresGlobal: errores de carga/listado (se muestran fuera del modal)
@@ -145,6 +149,8 @@ export default function ClientesPage() {
     setCif("");
     setContacto("");
     setDireccion("");
+    setEmail("");           // CAMBIO: añadido campo email
+    setTelefono("");        // CAMBIO: añadido campo teléfono
     setIsModalOpen(true);
   };
 
@@ -161,6 +167,8 @@ export default function ClientesPage() {
     setCif(c.cif);
     setContacto(c.persona_contacto ?? "");
     setDireccion(c.direccion ?? "");
+    setEmail(c.email ?? "");           // CAMBIO: añadido campo email
+    setTelefono(c.telefono ?? "");     // CAMBIO: añadido campo teléfono
     setIsModalOpen(true);
   };
 
@@ -255,6 +263,8 @@ export default function ClientesPage() {
           cif: cif.trim().toUpperCase(),
           persona_contacto: contacto.trim() || null,
           direccion: direccion.trim() || null,
+          email: email.trim() || null,           // CAMBIO: añadido campo email
+          telefono: telefono.trim() || null,     // CAMBIO: añadido campo teléfono
         };
 
         // Llama al backend para crear (POST /api/clientes/)
@@ -278,6 +288,8 @@ export default function ClientesPage() {
           cif: cif.trim().toUpperCase(),
           persona_contacto: contacto.trim() || null,
           direccion: direccion.trim() || null,
+          email: email.trim() || null,           // CAMBIO: añadido campo email
+          telefono: telefono.trim() || null,     // CAMBIO: añadido campo teléfono
         };
 
         // Llama al backend para editar (PUT /api/clientes/{id})
@@ -339,259 +351,279 @@ export default function ClientesPage() {
   };
 
   // ======================
-  // ------------- RENDER -------------
-  // ======================
-  // UI principal:
-  // - cabecera + botón nuevo
-  // - error global (si falla la carga del listado)
-  // - buscador
-  // - tabla con acciones (editar/borrar) en hover
-  // - modal de crear/editar con error dentro
-  return (
-    <div className="p-10 max-w-7xl mx-auto relative">
-      {/* ------------- CABECERA ------------- */}
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-quality-dark">Clientes</h1>
-          <p className="text-gray-500">Directorio de empresas a facturar.</p>
-        </div>
-        <button
-          onClick={abrirModalNuevo}
-          className="bg-quality-red text-white px-5 py-2.5 rounded-lg flex items-center gap-2 hover:bg-red-700 transition"
-        >
-          <Plus size={18} /> Nuevo Cliente
-        </button>
+// ------------- RENDER -------------
+// ======================
+return (
+  <div className="p-10 max-w-7xl mx-auto relative">
+    {/* ------------- CABECERA ------------- */}
+    <div className="flex justify-between items-center mb-8">
+      <div>
+        <h1 className="text-3xl font-bold text-quality-dark">Clientes</h1>
+        <p className="text-gray-500">Directorio de empresas a facturar.</p>
       </div>
+      <button
+        onClick={abrirModalNuevo}
+        className="bg-quality-red text-white px-5 py-2.5 rounded-lg flex items-center gap-2 hover:bg-red-700 transition"
+      >
+        <Plus size={18} /> Nuevo Cliente
+      </button>
+    </div>
 
-      {/* ------------- ERROR GLOBAL (LISTADO) ------------- */}
-      {erroresGlobal.general && (
-        <div className="bg-red-50 text-red-800 p-3 rounded mb-4 flex gap-2">
-          <AlertCircle size={18} /> {erroresGlobal.general}
-        </div>
-      )}
-
-      {/* ------------- BUSCADOR ------------- */}
-      <div className="bg-white p-4 rounded-t-xl border border-gray-200 border-b-0 flex gap-3">
-        <div className="relative w-full max-w-md">
-          <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-            size={18}
-          />
-          <input
-            type="text"
-            placeholder="Buscar empresa o CIF..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg bg-white text-gray-700 outline-none focus:border-quality-red"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
+    {/* ------------- ERROR GLOBAL (LISTADO) ------------- */}
+    {erroresGlobal.general && (
+      <div className="bg-red-50 text-red-800 p-3 rounded mb-4 flex gap-2">
+        <AlertCircle size={18} /> {erroresGlobal.general}
       </div>
+    )}
 
-      {/* ------------- TABLA ------------- */}
-      <div className="bg-white border border-gray-200 rounded-b-xl overflow-hidden shadow-sm">
-        <table className="w-full text-left">
-          <thead className="bg-gray-50 border-b border-gray-200 text-xs uppercase text-gray-500 font-semibold">
+    {/* ------------- BUSCADOR ------------- */}
+    <div className="bg-white p-4 rounded-t-xl border border-gray-200 border-b-0 flex gap-3">
+      <div className="relative w-full max-w-md">
+        <Search
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+          size={18}
+        />
+        <input
+          type="text"
+          placeholder="Buscar empresa o CIF..."
+          className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg bg-white text-gray-700 outline-none focus:border-quality-red"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
+    </div>
+
+    {/* ------------- TABLA ------------- */}
+    <div className="bg-white border border-gray-200 rounded-b-xl overflow-hidden shadow-sm">
+      <table className="w-full text-left">
+        <thead className="bg-gray-50 border-b border-gray-200 text-xs uppercase text-gray-500 font-semibold">
+          <tr>
+            <th className="px-6 py-4">Empresa</th>
+            <th className="px-6 py-4">Contacto</th>
+            {/* CAMBIO: añadida columna Email */}
+            <th className="px-6 py-4">Email</th>
+            {/* CAMBIO: añadida columna Teléfono */}
+            <th className="px-6 py-4">Teléfono</th>
+            <th className="px-6 py-4">Dirección</th>
+            <th className="px-6 py-4 text-right">Acciones</th>
+          </tr>
+        </thead>
+
+        <tbody className="divide-y divide-gray-100">
+          {isLoading ? (
             <tr>
-              <th className="px-6 py-4">Empresa</th>
-              <th className="px-6 py-4">Contacto</th>
-              <th className="px-6 py-4">Dirección</th>
-              <th className="px-6 py-4 text-right">Acciones</th>
+              {/* CAMBIO: ajustado colspan por las dos columnas nuevas */}
+              <td colSpan={6} className="p-10 text-center">
+                <Loader2 className="animate-spin inline mr-2" /> Cargando...
+              </td>
             </tr>
-          </thead>
+          ) : clientesFiltrados.length === 0 ? (
+            <tr>
+              {/* CAMBIO: ajustado colspan por las dos columnas nuevas */}
+              <td colSpan={6} className="p-10 text-center">
+                No hay clientes.
+              </td>
+            </tr>
+          ) : (
+            clientesFiltrados.map((c) => (
+              <tr
+                key={c.id_cliente}
+                className="hover:bg-gray-50 group transition-colors"
+              >
+                <td className="px-6 py-4">
+                  <p className="font-bold text-quality-dark">{c.n_cliente}</p>
+                  <p className="text-xs text-gray-500">
+                    ID: {c.id_cliente} · CIF: {c.cif}
+                  </p>
+                </td>
+                <td className="px-6 py-4 text-gray-600">
+                  {c.persona_contacto || "-"}
+                </td>
+                {/* CAMBIO: añadida celda para Email */}
+                <td className="px-6 py-4 text-gray-600">
+                  {c.email || "-"}
+                </td>
+                {/* CAMBIO: añadida celda para Teléfono */}
+                <td className="px-6 py-4 text-gray-600">
+                  {c.telefono || "-"}
+                </td>
+                <td className="px-6 py-4 text-sm text-gray-600">
+                  {c.direccion || "-"}
+                </td>
 
-          <tbody className="divide-y divide-gray-100">
-            {/* Estado: cargando */}
-            {isLoading ? (
-              <tr>
-                <td colSpan={4} className="p-10 text-center">
-                  <Loader2 className="animate-spin inline mr-2" /> Cargando...
+                <td className="px-6 py-4 text-right">
+                  <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                      title="Editar"
+                      onClick={() => abrirModalEditar(c)}
+                    >
+                      <Edit size={16} />
+                    </button>
+                    <button
+                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                      onClick={() => handleArchivar(c.id_cliente)}
+                      title="Archivar"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </td>
               </tr>
-            ) : /* Estado: sin datos */
-            clientesFiltrados.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="p-10 text-center">
-                  No hay clientes.
-                </td>
-              </tr>
-            ) : (
-              // Estado: lista con filas
-              clientesFiltrados.map((c) => (
-                <tr
-                  key={c.id_cliente}
-                  className="hover:bg-gray-50 group transition-colors"
-                >
-                  <td className="px-6 py-4">
-                    <p className="font-bold text-quality-dark">{c.n_cliente}</p>
-                    <p className="text-xs text-gray-500">
-                      ID: {c.id_cliente} · CIF: {c.cif}
-                    </p>
-                  </td>
-                  <td className="px-6 py-4 text-gray-600">
-                    {c.persona_contacto || "-"}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    {c.direccion || "-"}
-                  </td>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
 
-                  {/* Acciones ocultas hasta hover de fila (group-hover) */}
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
-                        title="Editar"
-                        onClick={() => abrirModalEditar(c)}
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
-                        onClick={() => handleArchivar(c.id_cliente)}
-                        title="Archivar"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+    {/* ------------- MODAL (CREAR / EDITAR) ------------- */}
+    {isModalOpen && (
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
+          <div className="flex justify-between items-center mb-6 border-b pb-4">
+            <h3 className="text-lg font-bold text-quality-dark flex gap-2 items-center">
+              <Building2 className="text-quality-red" />{" "}
+              {esEdicion ? "Editar Cliente" : "Nuevo Cliente"}
+            </h3>
+            <button onClick={cerrarModal}>
+              <X className="text-gray-400 hover:text-black" />
+            </button>
+          </div>
 
-      {/* ------------- MODAL (CREAR / EDITAR) ------------- */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
-            {/* Cabecera modal */}
-            <div className="flex justify-between items-center mb-6 border-b pb-4">
-              <h3 className="text-lg font-bold text-quality-dark flex gap-2 items-center">
-                <Building2 className="text-quality-red" />{" "}
-                {esEdicion ? "Editar Cliente" : "Nuevo Cliente"}
-              </h3>
-              <button onClick={cerrarModal}>
-                <X className="text-gray-400 hover:text-black" />
-              </button>
+          {erroresModal.general && (
+            <div className="bg-red-50 text-red-800 p-3 rounded mb-4 flex gap-2">
+              <AlertCircle size={18} /> {erroresModal.general}
             </div>
+          )}
 
-            {/* Error del modal (validación front o error backend) */}
-            {erroresModal.general && (
-              <div className="bg-red-50 text-red-800 p-3 rounded mb-4 flex gap-2">
-                <AlertCircle size={18} /> {erroresModal.general}
-              </div>
-            )}
-
-            {/* Formulario */}
-            <div className="space-y-4">
-              {/* Sociedad + ID Cliente (bloqueados en edición) */}
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="text-sm font-medium block mb-1">
-                    Sociedad
-                  </label>
-                  <input
-                    className={`w-full border rounded-lg px-3 py-2 ${
-                      esEdicion
-                        ? "bg-gray-100 text-gray-500 cursor-not-allowed"
-                        : ""
-                    }`}
-                    value={idSociedad}
-                    onChange={(e) => setIdSociedad(e.target.value)}
-                    disabled={esEdicion}
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="text-sm font-medium block mb-1">
-                    ID Cliente
-                  </label>
-                  <input
-                    className={`w-full border rounded-lg px-3 py-2 ${
-                      esEdicion
-                        ? "bg-gray-100 text-gray-500 cursor-not-allowed"
-                        : ""
-                    }`}
-                    placeholder="ATOS, CYC..."
-                    value={idCliente}
-                    onChange={(e) => setIdCliente(e.target.value)}
-                    disabled={esEdicion}
-                  />
-                </div>
-              </div>
-
-              {/* Empresa + CIF */}
-              <div className="grid grid-cols-3 gap-4">
-                <div className="col-span-2">
-                  <label className="text-sm font-medium block mb-1">
-                    Empresa
-                  </label>
-                  <input
-                    className="w-full border rounded-lg px-3 py-2"
-                    placeholder="Tech S.L."
-                    value={nombre}
-                    onChange={(e) => setNombre(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium block mb-1">
-                    CIF/NIF
-                  </label>
-                  <input
-                    className="w-full border rounded-lg px-3 py-2"
-                    placeholder="B123..."
-                    value={cif}
-                    onChange={(e) => setCif(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              {/* Contacto */}
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="text-sm font-medium block mb-1">
-                  Contacto
+                  Sociedad
                 </label>
                 <input
-                  className="w-full border rounded-lg px-3 py-2"
-                  placeholder="Nombre persona"
-                  value={contacto}
-                  onChange={(e) => setContacto(e.target.value)}
+                  className={`w-full border rounded-lg px-3 py-2 ${
+                    esEdicion
+                      ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                      : ""
+                  }`}
+                  value={idSociedad}
+                  onChange={(e) => setIdSociedad(e.target.value)}
+                  disabled={esEdicion}
                 />
               </div>
-
-              {/* Dirección */}
-              <div>
+              <div className="col-span-2">
                 <label className="text-sm font-medium block mb-1">
-                  Dirección
+                  ID Cliente
                 </label>
                 <input
-                  className="w-full border rounded-lg px-3 py-2"
-                  placeholder="Calle..."
-                  value={direccion}
-                  onChange={(e) => setDireccion(e.target.value)}
+                  className={`w-full border rounded-lg px-3 py-2 ${
+                    esEdicion
+                      ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                      : ""
+                  }`}
+                  placeholder="ATOS, CYC..."
+                  value={idCliente}
+                  onChange={(e) => setIdCliente(e.target.value)}
+                  disabled={esEdicion}
                 />
               </div>
             </div>
 
-            {/* Botonera */}
-            <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-              <button
-                onClick={cerrarModal}
-                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleGuardar}
-                disabled={isSaving}
-                className="px-4 py-2 bg-quality-dark text-white rounded-lg flex items-center gap-2 disabled:opacity-50"
-              >
-                {isSaving && <Loader2 className="animate-spin" size={16} />}
-                {esEdicion ? "Guardar cambios" : "Guardar"}
-              </button>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="col-span-2">
+                <label className="text-sm font-medium block mb-1">
+                  Empresa
+                </label>
+                <input
+                  className="w-full border rounded-lg px-3 py-2"
+                  placeholder="Tech S.L."
+                  value={nombre}
+                  onChange={(e) => setNombre(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1">
+                  CIF/NIF
+                </label>
+                <input
+                  className="w-full border rounded-lg px-3 py-2"
+                  placeholder="B123..."
+                  value={cif}
+                  onChange={(e) => setCif(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium block mb-1">
+                Contacto
+              </label>
+              <input
+                className="w-full border rounded-lg px-3 py-2"
+                placeholder="Nombre persona"
+                value={contacto}
+                onChange={(e) => setContacto(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium block mb-1">
+                Email
+              </label>
+              <input
+                className="w-full border rounded-lg px-3 py-2"
+                placeholder="contacto@empresa.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium block mb-1">
+                Teléfono
+              </label>
+              <input
+                className="w-full border rounded-lg px-3 py-2"
+                placeholder="+34 912 345 678"
+                value={telefono}
+                onChange={(e) => setTelefono(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium block mb-1">
+                Dirección
+              </label>
+              <input
+                className="w-full border rounded-lg px-3 py-2"
+                placeholder="Calle..."
+                value={direccion}
+                onChange={(e) => setDireccion(e.target.value)}
+              />
             </div>
           </div>
+
+          <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+            <button
+              onClick={cerrarModal}
+              className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleGuardar}
+              disabled={isSaving}
+              className="px-4 py-2 bg-quality-dark text-white rounded-lg flex items-center gap-2 disabled:opacity-50"
+            >
+              {isSaving && <Loader2 className="animate-spin" size={16} />}
+              {esEdicion ? "Guardar cambios" : "Guardar"}
+            </button>
+          </div>
         </div>
-      )}
-    </div>
-  );
+      </div>
+    )}
+  </div>
+);
 }
