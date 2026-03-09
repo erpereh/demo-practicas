@@ -67,6 +67,20 @@ class Cliente(Base):
         nullable=True
     )
 
+    # Email de contacto del cliente
+    email = Column(
+        "EMAIL",
+        String(255),
+        nullable=True
+    )
+
+    # Teléfono de contacto del cliente
+    telefono = Column(
+        "TELEFONO",
+        String(50),
+        nullable=True
+    )
+
     # Índice compuesto para búsquedas eficientes por sociedad y CIF
     __table_args__ = (
         Index("ix_clientes_sociedad_cif", "ID_SOCIEDAD", "CIF"),

@@ -24,6 +24,7 @@ def listar_clientes(db: Session = Depends(get_db)):
 # 3) Si pasa las validaciones, construye el modelo Cliente, lo guarda y devuelve el registro creado.
 @router.post("/", response_model=ClienteOut, status_code=status.HTTP_201_CREATED)
 def crear_cliente(payload: ClienteCreate, db: Session = Depends(get_db)):
+
     # 1) PK: id_cliente
     existe = db.execute(
         select(Cliente).where(Cliente.id_cliente == payload.id_cliente)
@@ -48,7 +49,10 @@ def crear_cliente(payload: ClienteCreate, db: Session = Depends(get_db)):
         cif=payload.cif,
         persona_contacto=payload.persona_contacto,
         direccion=payload.direccion,
+        email=payload.email,          # ← añadido
+        telefono=payload.telefono     # ← añadido
     )
+
     db.add(nuevo)
     db.commit()
     db.refresh(nuevo)
@@ -87,6 +91,10 @@ def editar_cliente(id_cliente: str, payload: ClienteUpdate, db: Session = Depend
         cliente.persona_contacto = payload.persona_contacto
     if payload.direccion is not None:
         cliente.direccion = payload.direccion
+    if payload.email is not None:          # ← añadido
+        cliente.email = payload.email
+    if payload.telefono is not None:       # ← añadido
+        cliente.telefono = payload.telefono
 
     db.commit()
     db.refresh(cliente)
