@@ -1,0 +1,8 @@
+flask
+flask-cors
+pandas
+openpyxl
+sqlalchemy
+mysql-connector-python
+python-dotenv
+uvicorn
