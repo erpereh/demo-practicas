@@ -228,10 +228,10 @@ export default function FacturacionPage() {
           <select
             value={anio}
             onChange={(e) => setAnio(Number(e.target.value))}
-            className="border p-2 rounded w-40"
+            className="border p-2 rounded w-56"
           >
             <option value="">Seleccionar Año</option>
-            {Array.from({ length: 21 }, (_, i) => 2010 + i).map((y) => (
+            {Array.from({ length: 11 }, (_, i) => new Date().getFullYear() - i).map((y) => (
               <option key={y} value={y}>
                 {y}
               </option>
