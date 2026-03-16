@@ -8,12 +8,6 @@ Responsabilidades:
 - Generar factura definitiva.
 - Bloquear horas como facturadas.
 
-Notas críticas:
-- Actualmente NO usa base de datos.
-- Toda la lógica está en memoria.
-- Falta migrar a modelo ORM real.
-- El control de estado de horas es manual.
-
 ------------------------------------------------
 Se ha realizado la conexión con la Base de Datos
 ------------------------------------------------
@@ -38,6 +32,8 @@ from app.models.hist_proyecto import HistProyecto
 
 from app.models.proyecto import Proyecto
 from app.models.horas_trab import HorasTrab
+
+from calendar import monthrange
 
 #BaseModel necesario para los endpoint POST
 from pydantic import BaseModel
@@ -68,64 +64,6 @@ def listar_facturas(db: Session = Depends(get_db)):
         for f in facturas
     ]
 
-#(POST/facturas) GENERAR FACTURA
-@router.post("/facturas")
-def generar_factura(
-    id_sociedad: str,
-    id_cliente: str,
-    concepto: str,
-    base_imponible: float,
-    db: Session = Depends(get_db)  
-):
-    # IVA fijo 
-    IVA = 0.21
-    total = round(base_imponible * (1 + IVA), 2)
-
-    # Generar número de factura simple
-    hoy = date.today()
-    prefijo = hoy.strftime("%y%m")
-
-    ultima = db.query(Factura).filter(
-        Factura.num_factura.like(f"{prefijo}%")
-    ).order_by(Factura.num_factura.desc()).first()
-
-    secuencia = 1
-    if ultima:
-        secuencia = int(ultima.num_factura[-4:]) + 1
-
-    num_factura = f"QS{prefijo}{secuencia:04d}"
-
-    # Evitar duplicados 
-    existe = db.query(Factura).filter(
-        Factura.num_factura == num_factura
-    ).first()
-    
-
-    if existe:
-        raise HTTPException(status_code=400, detail="Factura duplicada")
-
-    #Se construye la NUEVA FACTURA GENERADA
-    nueva = Factura(
-        id_sociedad=id_sociedad,
-        id_cliente=id_cliente,
-        num_factura=num_factura,
-        fec_factura=hoy,
-        concepto=concepto,
-        base_imponible=base_imponible,
-        total=total
-    )
-    #Se añade a la bbdd la nueva factura
-    db.add(nueva)
-    db.commit()
-    db.refresh(nueva)
-
-    return {
-        "mensaje": "Factura generada correctamente",
-        "num_factura": nueva.num_factura,
-        "fec_factura": nueva.fec_factura.isoformat(),
-        "base_imponible": float(nueva.base_imponible),
-        "total": float(nueva.total)
-    }
 
 
 
@@ -141,68 +79,93 @@ def get_empleado_nombre(dni: str, db: Session) -> str:
     return f"{emp.nombre} {emp.apellidos}"
 
 #Consigue la tarifa para devolver precio/hora (Utiliza HistProyecto)
-def get_tarifa(dni: str, id_proyecto: str, db: Session):
-    print("BUSCANDO TARIFA:", dni, id_proyecto)
+def get_tarifa(id_empleado: str, id_proyecto: str, fecha: date, db: Session):
+    print("BUSCANDO TARIFA: ", id_empleado, id_proyecto)
     tarifa = db.query(HistProyecto).filter(
-        HistProyecto.id_empleado == dni,
-        HistProyecto.id_proyecto == id_proyecto
+        HistProyecto.id_empleado == id_empleado,
+        HistProyecto.id_proyecto == id_proyecto,
+        HistProyecto.fec_inicio <= fecha
     ).order_by(HistProyecto.fec_inicio.desc()).first()
 
     print("RESULTADO TARIFA:", tarifa)
     return float(tarifa.tarifa) if tarifa else None
 
+
+# MÉTODO QUE CALCULA LA FACTURA MENSUAL DE UN CLIENTE 
 #Previsualiza las horas pendientes (Usa HorasTrab)
 def _preview_calculo(anio: int, mes: int, id_cliente: str, db: Session):
-
-    # 1️⃣ Horas pendientes desde BBDD
-    #Solo horas de proyectos del cliente seleccionado
-    pendientes = db.query(HorasTrab).filter(
-        HorasTrab.id_cliente == id_cliente,
-        extract("year", HorasTrab.fecha) == anio,
-        extract("month", HorasTrab.fecha) == mes
-    ).all()
-
     alertas = []
-    if not pendientes:
-        alertas.append("No hay horas pendientes de facturar para ese cliente/mes/año.")
-
-    # 2️⃣ Agrupar por empleado + proyecto
+    #(1) ENCONTRAR LOS PROYECTOS DEL CLIENTE
+    #Consulta a los proyectos cuyos id_cliente sean el pedido
+    proyectos = db.query(Proyecto.id_proyecto).filter(Proyecto.id_cliente == id_cliente).all()
+    proyectos_ids = [p.id_proyecto for p in proyectos] #proyectos_ids son los proyectos que tiene el cliente
+    if not proyectos_ids:
+        return {
+            "anio": anio,
+            "mes": mes,
+            "id_cliente": id_cliente,
+            "total_horas": 0,
+            "total_importe": 0,
+            "lineas": [],
+            "alertas": ["El cliente no tiene proyectos"]
+        }
+    
+    #(2) SACAR LAS HORAS TRABAJADAS DEL MES DE ESOS PROYECTOS
+    #Consulta las horas trabajadas en los proyectos que figuren en proyectos_ids
+    #Y que estén dentro del mismo MES y AÑO que se pide 
+    horas = db.query(HorasTrab).filter(HorasTrab.id_proyecto.in_(proyectos_ids),
+    extract("year", HorasTrab.fecha) == anio,
+    extract("month", HorasTrab.fecha) == mes                                   
+    ).all()
+    if not horas:
+        return {
+            "anio": anio,
+            "mes": mes,
+            "id_cliente": id_cliente,
+            "total_horas": 0,
+            "total_importe": 0,
+            "lineas": [],
+            "alertas": ["No hay horas trabajadas en los proyectos del cliente"]
+        }
+    
+    #(3) AGRUPAR EMPLEADO + PROYECTO EN HORAS
     agrupado = {}
-
-    for h in pendientes:
-        print("HORA: ", h.id_cliente, h.id_proyecto)
+    for h in horas:
         key = (h.id_empleado, h.id_proyecto)
         if key not in agrupado:
-            agrupado[key] = {"horas": 0.0}
-        agrupado[key]["horas"] += float(h.horas_dia)
-
+            agrupado[key] = 0
+        agrupado[key] += float(h.horas_dia)
+    
     lineas = []
-    total_horas = 0.0
-    total_importe = 0.0
+    total_importe = 0
+    total_horas = 0
 
-    # 3️⃣ Calcular importes
-    for (dni, proyecto), horas in agrupado.items():
-
-        tarifa = get_tarifa(dni, proyecto, db)
-
-        if tarifa is None:
-            alertas.append(f"Falta tarifa para {dni} en proyecto {proyecto}.")
+    #(4) BUSCAR LA TARIFA ASOCIADA AL EMPLEADO/PROYECTO Y CALCULAR SUBTOTALES
+    for (empleado, proyecto), horas_totales in agrupado.items():
+        #Se consigue la tarifa
+        ultimo_dia = monthrange(anio, mes)[1]
+        fecha = date(anio, mes, ultimo_dia) #(Se necesita la fecha para sacar la tarifa)
+        tarifa = get_tarifa(empleado, proyecto, fecha, db)
+        if not tarifa:
+            alertas.append("Falta tarifa para {empleado} en proyecto {proyecto}.")
             continue
+        #Subtotal: Total de horas trabajadas por un empleado, * su tarifa en ese proyecto
+        subtotal = round(horas_totales * tarifa, 2)
 
-        subtotal = round(horas * tarifa, 2)
-
+        #SE ESCRIBE LA SALIDA DE TODOS LOS SUBTOTALES
         lineas.append({
-            "empleado_dni": dni,
-            "empleado": get_empleado_nombre(dni, db),
+            "empleado_dni": empleado,
+            "empleado": empleado,
             "proyecto": proyecto,
-            "horas": round(horas, 2),
+            "horas": horas_totales,
             "tarifa_hora": tarifa,
             "subtotal": subtotal
         })
-
-        total_horas += horas
+        #SE CALCULAN LOS TOTALES
         total_importe += subtotal
-
+        total_horas += horas_totales
+    
+    #(5) DEVUELVE LAS LINEAS DE SUBTOTALES Y EL TOTAL DE LA FACTURA
     return {
         "anio": anio,
         "mes": mes,
@@ -212,6 +175,7 @@ def _preview_calculo(anio: int, mes: int, id_cliente: str, db: Session):
         "lineas": lineas,
         "alertas": alertas
     }
+
 
 #(GET/clientes) LISTAR CLIENTES
 @router.get("/clientes")
@@ -238,13 +202,10 @@ def preview_factura(request: PreviewRequest, db: Session = Depends(get_db)):
     if request.anio < 2000 or request.anio > 2100:
         raise HTTPException(status_code=400, detail="Año inválido")
     #Preview (no guarda nada)
-    return _preview_calculo(request.anio, request.mes, request.id_cliente, db)
+    preview = _preview_calculo(request.anio, request.mes, request.id_cliente, db)
+    return preview
 
 
-
-# ---------------------
-# POST /factura/generar
-# ---------------------
 
 #Request con los campos de generar_factura
 class GenerarFacturaRequest(BaseModel):
@@ -275,7 +236,6 @@ def generar_factura(request: GenerarFacturaRequest, db: Session = Depends(get_db
 
     # 🔍 Calculamos preview (precios automáticos)
     preview = _preview_calculo(request.anio, request.mes, request.id_cliente, db)
-
     if not preview["lineas"]:
         raise HTTPException(status_code=400, detail="No hay líneas facturables", headers={"preview": str(preview)})
     if any("Falta tarifa" in a for a in preview["alertas"]):
@@ -309,18 +269,18 @@ def generar_factura(request: GenerarFacturaRequest, db: Session = Depends(get_db
 
     # -------------------------
     # Bloquear horas
-    horas = db.query(HorasTrab).filter(
-        HorasTrab.id_cliente == request.id_cliente,
-        HorasTrab.estado == "PENDIENTE",
-        extract("year", HorasTrab.fecha) == request.anio,
-        extract("month", HorasTrab.fecha) == request.mes
-    ).all()
+    #horas = db.query(HorasTrab).filter(
+    #    HorasTrab.id_cliente == request.id_cliente,
+    #    HorasTrab.estado == "PENDIENTE",
+    #    extract("year", HorasTrab.fecha) == request.anio,
+    #    extract("month", HorasTrab.fecha) == request.mes
+    #).all()
 
-    for h in horas:
-        h.estado = "FACTURADA"
-        h.id_factura = nueva.num_factura
+    #for h in horas:
+    #    h.estado = "FACTURADA"
+    #    h.id_factura = nueva.num_factura
 
-    db.commit()
+    #db.commit()
 
     return {
         "mensaje": "Factura generada correctamente",
@@ -328,5 +288,6 @@ def generar_factura(request: GenerarFacturaRequest, db: Session = Depends(get_db
         "fec_factura": nueva.fec_factura.isoformat(),
         "base_imponible": float(nueva.base_imponible),
         "total": float(nueva.total),
-        "lineas": preview["lineas"]
+        "lineas": preview["lineas"],
+        "alertas": []
     }

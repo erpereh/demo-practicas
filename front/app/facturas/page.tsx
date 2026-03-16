@@ -113,6 +113,7 @@ export default function FacturacionPage() {
         return;
       }
       const data: PreviewFactura = await res.json();
+      console.log("PREVIEW BACKEND: ", data);
       setPreviewData(data);
       setGeneradaData(null);
       setErrores({});
@@ -266,7 +267,7 @@ export default function FacturacionPage() {
           <div className="border-t pt-6">
             <h3 className="font-semibold mb-4">Previsualización</h3>
             
-            {previewData.alertas.length > 0 && (
+            {previewData?.alertas?.length > 0 && (
               <div className="mb-4 text-red-600">
                 {previewData.alertas.map((a, i) => (
                   <p key={i}>⚠️ {a}</p>
@@ -278,7 +279,7 @@ export default function FacturacionPage() {
               <p><strong>Cliente:</strong> {previewData.id_cliente}</p>
               <p><strong>Periodo:</strong> {previewData.mes}/{previewData.anio}</p>
               <p><strong>Total Horas:</strong> {previewData.total_horas} h</p>
-              <p><strong>Total Importe:</strong> {previewData.total_importe.toFixed(2)} €</p>
+              <p><strong>Total Importe:</strong> {previewData.total_importe} €</p>
             </div>
 
             {/* Tabla de líneas */}
@@ -294,7 +295,7 @@ export default function FacturacionPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {previewData.lineas.map((l, i) => (
+                  {previewData?.lineas?.map((l, i) => (
                     <tr key={i}>
                       <td className="border px-2 py-1">{l.empleado}</td>
                       <td className="border px-2 py-1">{l.proyecto}</td>
@@ -309,7 +310,7 @@ export default function FacturacionPage() {
 
             {/* Total */}
             <div className="mt-6 text-xl font-bold">
-              Total Factura: {previewData.total_importe.toFixed(2)} €
+              Total Factura: {previewData.total_importe} €
             </div>
             
             {/* Confirmación de factura generada */}
