@@ -14,12 +14,17 @@ Se ha realizado la conexión con la Base de Datos
 
 Este módulo representa lógica de negocio pura.
 """
-
+import os
 
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import extract
 from datetime import date
+
+# 🔧 CAMBIO PDF: IMPORTS AÑADIDOS (NO EXISTÍAN)
+from fastapi.responses import FileResponse
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 
 #Importa la clase factura de 'models'
 from app.models.factura import Factura
@@ -34,6 +39,8 @@ from app.models.horas_trab import HorasTrab
 
 from calendar import monthrange
 from pydantic import BaseModel
+
+from app.models.banco import Banco
 
 #ROUTER:
 router = APIRouter(
@@ -274,3 +281,231 @@ def generar_factura(request: GenerarFacturaRequest, db: Session = Depends(get_db
         "lineas": preview["lineas"],
         "alertas": []
     }
+
+
+# 🔧 PDF IGUAL A LA PLANTILLA ORIGINAL
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.graphics.shapes import Drawing, Rect, String
+import os
+from reportlab.platypus import Image
+import io
+
+@router.get("/factura/pdf/{num_factura}")
+def generar_pdf(num_factura: str, db: Session = Depends(get_db)):
+
+    factura = db.query(Factura).filter(Factura.num_factura == num_factura).first()
+    if not factura:
+        raise HTTPException(status_code=404, detail="Factura no encontrada")
+
+    cliente = db.query(Cliente).filter(Cliente.id_cliente == factura.id_cliente).first()
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=40,
+        rightMargin=40,
+        topMargin=40,
+        bottomMargin=40,
+    )
+
+    styles = getSampleStyleSheet()
+    normal = styles["Normal"]
+    normal.fontSize = 10
+    bold = styles["Heading4"]
+    bold.fontSize = 12
+
+    elements = []
+
+    # ============================================================
+    # PLACEHOLDER IMAGEN
+    # ============================================================
+    logo_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "static", "logo.png")
+    )
+
+    def placeholder_imagen(width=140, height=55):
+        d = Drawing(width, height)
+        d.add(Rect(0, 0, width, height, strokeColor=colors.grey, fillColor=None))
+        d.add(String(width / 2 - 20, height / 2 - 5, "Imagen", fontSize=10))
+        return d
+
+    # Si el logo existe → usarlo
+    # Si no existe → usar placeholder
+    if os.path.exists(logo_path):
+        logo = Image(logo_path, width=140, height=55)
+    else:
+        logo = placeholder_imagen()
+
+    # ============================================================
+    # LOGO + DATOS FACTURA
+    # ============================================================
+
+    datos_factura = [
+        [Paragraph("<b>Factura</b>", normal)],
+        [Paragraph(f"<b>N° Factura:</b> {factura.num_factura}", normal)],
+        [Paragraph(f"<b>Fecha de impresión:</b> {factura.fec_factura.strftime('%d-%m-%Y')}", normal)],
+    ]
+
+    tabla_datos_factura = Table(datos_factura, colWidths=[200])
+    tabla_datos_factura.setStyle(TableStyle([
+        ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+    ]))
+
+    tabla_superior = Table([[logo, tabla_datos_factura]], colWidths=[200, 300])
+    tabla_superior.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+
+    elements.append(tabla_superior)
+    elements.append(Spacer(1, 20))
+
+    # ============================================================
+    # DATOS EMPRESA + DATOS CLIENTE (EN DOS COLUMNAS)
+    # ============================================================
+
+    # Datos fijos de la empresa
+    empresa = [
+        Paragraph("QUALITY SOLUTION CONSULTING SL", normal),
+        Paragraph("CIF/NIF: B86884707", normal),
+        Paragraph("Calle Henri Dunant Nº 15-17 Oficina 16", normal),
+        Paragraph("28036 Madrid", normal),
+        Paragraph("España", normal),
+        Paragraph("Teléfono: 91 565 42 48", normal),
+        Paragraph("Email: facturacion@qualitysolution.es", normal),
+        Paragraph("Web: http://www.qualitysolution.consulting/", normal),
+    ]
+
+    # Datos dinámicos del cliente
+    cliente_info = [
+        Paragraph("<b>Cliente</b>", bold),
+        Paragraph(f"<b>{cliente.n_cliente}</b>", normal),
+    ]
+
+    if cliente.direccion:
+        cliente_info.append(Paragraph(cliente.direccion, normal))
+    if cliente.cif:
+        cliente_info.append(Paragraph(f"CIF/NIF: {cliente.cif}", normal))
+    if cliente.telefono:
+        cliente_info.append(Paragraph(f"ATT: {cliente.telefono}", normal))
+
+    # Crear tabla de dos columnas
+    tabla_empresa_cliente = Table(
+        [
+            [empresa, cliente_info]
+        ],
+        colWidths=[260, 260]
+    )
+
+    tabla_empresa_cliente.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+
+    elements.append(tabla_empresa_cliente)
+    elements.append(Spacer(1, 20))
+    
+    # ============================================================
+    # TABLA PRINCIPAL (DESCRIPCIÓN)
+    # ============================================================
+
+    base = float(factura.base_imponible)
+    iva = round(base * 0.21, 2)
+    total = base + iva
+
+    tabla_lineas = Table([
+        ["DESCRIPCIÓN", "IVA", "BASE IMPONIBLE", "TOTAL"],
+        [factura.concepto, f"{iva:.2f}", f"{base:.2f}", f"{total:.2f}"],
+    ], colWidths=[220, 60, 100, 100])
+
+    tabla_lineas.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+        ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
+    ]))
+
+    elements.append(tabla_lineas)
+    elements.append(Spacer(1, 20))
+
+    # ============================================================
+    # DATOS BANCARIOS (DINÁMICOS)
+    # ============================================================
+
+    banco = db.query(Banco).filter(Banco.id_sociedad == factura.id_sociedad).first()
+
+    elements.append(Paragraph("<b>Pago mediante transferencia a la cuenta bancaria siguiente:</b>", normal))
+    elements.append(Spacer(1, 5))
+
+    if banco:
+        datos_banco = [
+            f"Banco: {banco.n_banco_cobro}",
+            f"Número cuenta: {banco.num_cuenta or '—'}",
+            f"Código IBAN: {banco.codigo_iban or '—'}",
+        ]
+    else:
+        datos_banco = [
+            "Banco: —",
+            "Número cuenta: —",
+            "Código IBAN: —",
+        ]
+
+    for linea in datos_banco:
+        elements.append(Paragraph(linea, normal))
+
+    elements.append(Spacer(1, 20))
+
+    # ============================================================
+    # TOTALES
+    # ============================================================
+
+    tabla_totales = Table([
+        ["TOTAL IVA 21%", f"{iva:.2f}"],
+        ["TOTAL BASE IMPONIBLE", f"{base:.2f}"],
+        ["TOTAL FACTURA", f"{total:.2f}"],
+    ], colWidths=[250, 150])
+
+    tabla_totales.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+        ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+    ]))
+
+    elements.append(tabla_totales)
+    #espacio entre la firma y la tabla
+    elements.append(Spacer(1, 40))
+
+    # ============================================================
+    # FIRMA (ALINEADA A LA DERECHA)
+    # ============================================================
+
+    firma = [
+        Paragraph("QUALITY SOLUTION CONSULTING SL", normal),
+        Paragraph("C.I.F. B-86884707", normal),
+    ]
+
+    tabla_firma = Table(
+        [[firma]],
+        colWidths=[450]  # empuja la firma hacia la derecha
+    )
+
+    tabla_firma.setStyle(TableStyle([
+        ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+
+    elements.append(tabla_firma)
+
+    doc.build(elements)
+    buffer.seek(0)
+
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=factura_{num_factura}.pdf"},
+    )

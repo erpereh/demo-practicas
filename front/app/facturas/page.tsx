@@ -32,7 +32,7 @@ interface PreviewFactura {
 }
 
 interface Cliente {
-  id_cliente: number;
+  id_cliente: string;
   n_cliente: string;
 }
 //------------------------
@@ -178,6 +178,10 @@ export default function FacturacionPage() {
   );  
 
 
+  /*
+  ------------RENDER
+  */
+
   return (
     <div className="p-8">
       <div className="flex justify-between items-center mb-6">
@@ -253,7 +257,7 @@ export default function FacturacionPage() {
             <option value="">Seleccionar Cliente</option>
 
             {clientes.map((c) => (
-              <option key={c.id_cliente} value={c.id_cliente}>
+              <option key={c.id_cliente} value={String(c.id_cliente)}>
                 {c.n_cliente}
               </option>
             ))}
