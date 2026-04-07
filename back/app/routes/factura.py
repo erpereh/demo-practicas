@@ -347,13 +347,14 @@ def generar_pdf(num_factura: str, db: Session = Depends(get_db)):
     # LOGO + DATOS FACTURA
     # ============================================================
 
+    
     datos_factura = [
         [Paragraph("<b>Factura</b>", normal)],
         [Paragraph(f"<b>N° Factura:</b> {factura.num_factura}", normal)],
         [Paragraph(f"<b>Fecha de impresión:</b> {factura.fec_factura.strftime('%d-%m-%Y')}", normal)],
     ]
 
-    tabla_datos_factura = Table(datos_factura, colWidths=[200])
+    tabla_datos_factura = Table(datos_factura, colWidths=[200], hAlign='RIGHT')
     tabla_datos_factura.setStyle(TableStyle([
         ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
@@ -371,35 +372,69 @@ def generar_pdf(num_factura: str, db: Session = Depends(get_db)):
     # DATOS EMPRESA + DATOS CLIENTE (EN DOS COLUMNAS)
     # ============================================================
 
+    # PONER FONDO GRIS Y PONER ESTE BLOQUE A LA DERECHA
     # Datos fijos de la empresa
     empresa = [
-        Paragraph("QUALITY SOLUTION CONSULTING SL", normal),
-        Paragraph("CIF/NIF: B86884707", normal),
-        Paragraph("Calle Henri Dunant Nº 15-17 Oficina 16", normal),
-        Paragraph("28036 Madrid", normal),
-        Paragraph("España", normal),
-        Paragraph("Teléfono: 91 565 42 48", normal),
-        Paragraph("Email: facturacion@qualitysolution.es", normal),
-        Paragraph("Web: http://www.qualitysolution.consulting/", normal),
+        [Paragraph("QUALITY SOLUTION CONSULTING SL", normal)],
+        [Paragraph("CIF/NIF: B86884707", normal)],
+        [Paragraph("Calle Henri Dunant Nº 15-17 Oficina 16", normal)],
+        [Paragraph("28036 Madrid", normal)],
+        [Paragraph("España", normal)],
+        [Paragraph("Teléfono: 91 565 42 48", normal)],
+        [Paragraph("Email: facturacion@qualitysolution.es", normal)],
+        [Paragraph("Web: http://www.qualitysolution.consulting/", normal)],
     ]
 
+    tabla_empresa = Table(
+        empresa,
+        colWidths=[250],
+        hAlign='RIGHT'
+    )
+
+    tabla_empresa.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.lightgrey),
+        ('BOX', (0,0), (-1,-1), 1, colors.black),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.grey),
+        ('LEFTPADDING', (0,0), (-1,-1), 6),
+        ('RIGHTPADDING', (0,0), (-1,-1), 6),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+    ]))
+
+
+    # RECUADRAR Y PONER EL BLOQUE A LA DERECHA
     # Datos dinámicos del cliente
     cliente_info = [
-        Paragraph("<b>Cliente</b>", bold),
-        Paragraph(f"<b>{cliente.n_cliente}</b>", normal),
+        [Paragraph("<b>Cliente</b>", bold)],
+        [Paragraph(f"<b>{cliente.n_cliente}</b>", normal)],
     ]
 
     if cliente.direccion:
-        cliente_info.append(Paragraph(cliente.direccion, normal))
+        cliente_info.append([Paragraph(cliente.direccion, normal)])
     if cliente.cif:
-        cliente_info.append(Paragraph(f"CIF/NIF: {cliente.cif}", normal))
+        cliente_info.append([Paragraph(f"CIF/NIF: {cliente.cif}", normal)])
     if cliente.telefono:
-        cliente_info.append(Paragraph(f"ATT: {cliente.telefono}", normal))
+        cliente_info.append([Paragraph(f"ATT: {cliente.telefono}", normal)])
+
+    tabla_cliente = Table(
+        cliente_info,
+        colWidths=[250],
+        hAlign='LEFT'
+    )
+
+    tabla_cliente.setStyle(TableStyle([
+        ('BOX', (0,0), (-1,-1), 1, colors.black),
+        ('LEFTPADDING', (0,0), (-1,-1), 6),
+        ('RIGHTPADDING', (0,0), (-1,-1), 6),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+    ]))
+
 
     # Crear tabla de dos columnas
     tabla_empresa_cliente = Table(
         [
-            [empresa, cliente_info]
+            [tabla_cliente, tabla_empresa]
         ],
         colWidths=[260, 260]
     )
@@ -474,6 +509,9 @@ def generar_pdf(num_factura: str, db: Session = Depends(get_db)):
     tabla_totales.setStyle(TableStyle([
         ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
         ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+        # Fondo gris y negrita para TOTAL
+        ("BACKGROUND", (0, 2), (-1, 2), colors.lightgrey),
+        ("FONTNAME", (0, 2), (-1, 2), "Helvetica-Bold"),
     ]))
 
     elements.append(tabla_totales)
@@ -485,8 +523,8 @@ def generar_pdf(num_factura: str, db: Session = Depends(get_db)):
     # ============================================================
 
     firma = [
-        Paragraph("QUALITY SOLUTION CONSULTING SL", normal),
-        Paragraph("C.I.F. B-86884707", normal),
+        [Paragraph("<b>QUALITY SOLUTION CONSULTING SL</b>", normal)],
+        [Paragraph("C.I.F. B-86884707", normal)],
     ]
 
     tabla_firma = Table(
