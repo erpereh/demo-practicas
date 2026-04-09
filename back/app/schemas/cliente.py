@@ -112,6 +112,8 @@ class ClienteCreate(BaseModel):
     cif: str = Field(..., min_length=8, max_length=20)
     persona_contacto: str | None = Field(default=None, max_length=255)
     direccion: str | None = Field(default=None, max_length=1000)
+    email: str | None = Field(default=None, max_length=255)
+    telefono: str | None = Field(default=None, max_length=50)
 
     # salida para frontend
     activo: bool = True
@@ -171,6 +173,12 @@ class ClienteCreate(BaseModel):
         @classmethod
         def val_text(cls, v: str | None) -> str | None:
             return _clean_text(v)
+
+        @field_validator("email", "telefono")
+        @classmethod
+        def val_contact_extra(cls, v: str | None) -> str | None:
+            return _clean_text(v)
+        
     else:
         @validator("id_sociedad")
         def val_sociedad(cls, v: str) -> str:
@@ -201,6 +209,10 @@ class ClienteCreate(BaseModel):
         def val_text(cls, v: str | None) -> str | None:
             return _clean_text(v)
 
+        @validator("email", "telefono")
+        def val_contact_extra(cls, v: str | None) -> str | None:
+            return _clean_text(v)
+
 
 # Modelo de entrada para ACTUALIZAR clientes:
 # todos los campos son opcionales, porque en un PUT de edición
@@ -210,6 +222,8 @@ class ClienteUpdate(BaseModel):
     cif: str | None = Field(default=None, min_length=8, max_length=20)
     persona_contacto: str | None = Field(default=None, max_length=255)
     direccion: str | None = Field(default=None, max_length=1000)
+    email: str | None = Field(default=None, max_length=255)
+    telefono: str | None = Field(default=None, max_length=50)
 
     if V2:
 
@@ -244,6 +258,11 @@ class ClienteUpdate(BaseModel):
         @classmethod
         def val_text(cls, v: str | None) -> str | None:
             return _clean_text(v)
+        
+        @field_validator("email", "telefono")
+        @classmethod
+        def val_contact_extra(cls, v: str | None) -> str | None:
+            return _clean_text(v)
     else:
         @validator("n_cliente")
         def val_nombre(cls, v: str | None) -> str | None:
@@ -262,6 +281,10 @@ class ClienteUpdate(BaseModel):
 
         @validator("persona_contacto", "direccion")
         def val_text(cls, v: str | None) -> str | None:
+            return _clean_text(v)
+        
+        @validator("email", "telefono")
+        def val_contact_extra(cls, v: str | None) -> str | None:
             return _clean_text(v)
 
 
@@ -282,6 +305,8 @@ class ClienteOut(BaseModel):
     cif: str
     persona_contacto: str | None = None
     direccion: str | None = None
+    email: str | None = None
+    telefono: str | None = None
 
 
     activo: bool = True

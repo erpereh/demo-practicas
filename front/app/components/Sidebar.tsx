@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Users, Building2, FileSpreadsheet, Landmark, FolderKanban, CircleDollarSign, Search, FileText, Clock } from "lucide-react";
+import { Users, Building2, FileSpreadsheet, Landmark, FolderKanban, CircleDollarSign, Search, FileText, Clock, Receipt } from "lucide-react";
 
 export default function Sidebar() {
     const pathname = usePathname();
@@ -122,13 +122,19 @@ export default function Sidebar() {
                 {/* SECCIÓN 4: FACTURACIÓN */}
                 <div>
                     <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 px-3">
-                        Facturación
+                        Facturación E Historial
                     </p>
                     <ul className="space-y-2">
                         <li>
                             <Link href="/facturas" className={getLinkStyle("/facturas")}>
-                                <FileText size={18} className={getIconStyle("/facturas")} />
+                                <Receipt size={18} className={getIconStyle("/facturas")} />
                                 Generar Facturas
+                            </Link>
+                        </li>
+                        <li>
+                            <Link href="/historial-facturas" className={getLinkStyle("/historial-facturas")}>
+                                <FileText size={18} className={getIconStyle("/historial-facturas")} />
+                                Historial de Facturas
                             </Link>
                         </li>
                     </ul>

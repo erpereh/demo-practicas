@@ -31,6 +31,8 @@ def main():
             cif="12345678Z",
             persona_contacto="Persona Test",
             direccion="Direccion Test",
+            email="test@example.com",
+            telefono="600123123",
         )
 
         db.add(nuevo)
