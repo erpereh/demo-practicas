@@ -269,8 +269,18 @@ export default function ProyectosPage() {
     };
 
     // Actualiza un campo del formulario manteniendo el resto (patrón setState con spread)
-    const updateForm = (field: keyof ProyectoForm, value: string) =>
-        setForm(prev => ({ ...prev, [field]: value }));
+    const updateForm = (field: keyof ProyectoForm, value: string) => {
+        setForm(prev => {
+            const newForm = { ...prev, [field]: value };
+
+        // Si cambia tipo_pago y no es cerrado → borrar precio
+            if (field === "tipo_pago" && value !== "cerrado") {
+            newForm.precio = "";
+            }
+
+            return newForm;
+        });
+    };
 
     // Nombre a mostrar en la tabla:
     // - si backend incluye embed cliente, muestra n_cliente
@@ -515,51 +525,56 @@ export default function ProyectosPage() {
                                     />
                                 </div>
                             </div>
+                        </div>     
 
-                            {/* Precio + fecha inicio */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Precio</label>
-                                    <input
-                                        type="number"
-                                        value={form.precio}
-                                        onChange={e => updateForm("precio", e.target.value)}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-quality-red/20 focus:border-quality-red outline-none"
-                                        placeholder="0.00"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Fecha Inicio</label>
-                                    <input
-                                        type="date"
-                                        value={form.fec_inicio}
-                                        onChange={e => updateForm("fec_inicio", e.target.value)}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-quality-red/20 focus:border-quality-red outline-none"
-                                    />
-                                </div>
-                            </div>
-                        </div>
+    {/* Precio + fecha inicio */}
+    <div className="grid grid-cols-2 gap-4">
 
-                        {/* Botonera modal */}
-                        <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50/50">
-                            <button
-                                onClick={() => setIsModalOpen(false)}
-                                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={handleSave}
-                                disabled={saving}
-                                className="px-4 py-2 text-sm font-medium bg-quality-dark text-white hover:bg-black rounded-lg transition-colors shadow-sm flex items-center gap-2 disabled:opacity-60"
-                            >
-                                {saving && <Loader2 size={14} className="animate-spin" />}
-                                {editingProyecto ? "Guardar Cambios" : "Crear Proyecto"}
-                            </button>
-                        </div>
-                    </div>
+        {form.tipo_pago === "cerrado" && (
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Precio</label>
+                <input
+                    type="number"
+                    value={form.precio}
+                    onChange={e => updateForm("precio", e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-quality-red/20 focus:border-quality-red outline-none"
+                    placeholder="0.00"
+                />
+            </div>
+        )}
+
+        <div className={form.tipo_pago === "cerrado" ? "" : "col-span-2"}>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Fecha Inicio</label>
+            <input
+                type="date"
+                value={form.fec_inicio}
+                onChange={e => updateForm("fec_inicio", e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-quality-red/20 focus:border-quality-red outline-none"
+            />
+        </div>
+
+        </div>
+
+            {/* Botonera modal */}
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50/50">
+                <button
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                    Cancelar
+                </button>
+                <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="px-4 py-2 text-sm font-medium bg-quality-dark text-white hover:bg-black rounded-lg transition-colors shadow-sm flex items-center gap-2 disabled:opacity-60"
+                >
+                    {saving && <Loader2 size={14} className="animate-spin" />}
+                    {editingProyecto ? "Guardar Cambios" : "Crear Proyecto"}
+                </button>
                 </div>
-            )}
+                </div>
+            </div>
+            )} 
 
             {/* MODAL CONFIRMAR ELIMINACIÓN */}
             {deleteId && (
