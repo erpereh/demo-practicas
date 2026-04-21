@@ -33,6 +33,7 @@ export default function HoursClient() {
   const [selected, setSelected] = useState<TimeEntry | null>(null);
 
   const [editHoras, setEditHoras] = useState<number>(0);
+  const [editProyecto, setEditProyecto] = useState("");
 
   const [mEmpleado, setMEmpleado] = useState("");
   const [mProyecto, setMProyecto] = useState("");
@@ -114,44 +115,46 @@ export default function HoursClient() {
     [filteredRows]
   );
 
-  function openEdit(row: TimeEntry) {
-    if (row.facturada) return;
-    setSelected(row);
-    setEditHoras(row.horas);
-    setIsEditOpen(true);
-  }
+function openEdit(row: TimeEntry) {
+  if (row.facturada) return;
+  setSelected(row);
+  setEditHoras(row.horas);
+  setEditProyecto(row.proyecto.id);
+  setIsEditOpen(true);
+}
 
-  async function saveEdit() {
-    if (!selected) return;
+async function saveEdit() {
+  if (!selected) return;
 
-    try {
-      const res = await fetch(
-        `${API_URL}/api/horas/${selected.empleado.id}/${selected.fecha}/${selected.proyecto.id}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            horas_dia: Number(editHoras),
-            desc_tarea: selected.desc_tarea || "Fichaje editado manualmente",
-          }),
-        }
-      );
-
-      if (!res.ok) {
-        const err = await res.text();
-        console.error("Error actualizando fichaje:", err);
-        return;
+  try {
+    const res = await fetch(
+      `${API_URL}/api/horas/${selected.empleado.id}/${selected.fecha}/${selected.proyecto.id}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          horas_dia: Number(editHoras),
+          id_proyecto: editProyecto,
+          desc_tarea: selected.desc_tarea || "Fichaje editado manualmente",
+        }),
       }
+    );
 
-      await fetchData();
-      setIsEditOpen(false);
-      setSelected(null);
-    } catch (error) {
-      console.error("Error editando:", error);
+    if (!res.ok) {
+      const err = await res.text();
+      console.error("Error actualizando fichaje:", err);
+      return;
     }
+
+    await fetchData();
+    setIsEditOpen(false);
+    setSelected(null);
+  } catch (error) {
+    console.error("Error editando:", error);
   }
+}
 
   async function deleteEntry(row: TimeEntry) {
     if (row.facturada) return;
@@ -459,15 +462,37 @@ export default function HoursClient() {
               </button>
             </div>
 
-            <div className="p-6">
-              <input
-                type="number"
-                step="0.25"
-                min="0"
-                value={editHoras}
-                onChange={(e) => setEditHoras(Number(e.target.value))}
-                className="w-full border rounded-lg px-3 py-2"
-              />
+            <div className="p-6 space-y-4">
+
+              {/* EDITAR HORAS */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Horas trabajadas</label>
+                <input
+                  type="number"
+                  step="0.25"
+                  min="0"
+                  value={editHoras}
+                  onChange={(e) => setEditHoras(Number(e.target.value))}
+                  className="w-full border rounded-lg px-3 py-2"
+                />
+              </div>
+
+              {/* EDITAR PROYECTO */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Proyecto</label>
+                <select
+                  value={editProyecto}
+                  onChange={(e) => setEditProyecto(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 bg-white"
+                >
+                  {proyectos.map((p) => (
+                    <option key={p.id_proyecto} value={p.id_proyecto}>
+                      {p.id_proyecto}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
             </div>
 
             <div className="px-6 py-4 border-t flex justify-end gap-3 bg-gray-50">

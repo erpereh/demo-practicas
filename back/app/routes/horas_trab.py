@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.horas_trab import HorasTrab
+from app.schemas.horas_trab import HoraCreate, HoraUpdate, HoraOut
 
 router = APIRouter(prefix="/api", tags=["Horas"])
 
@@ -134,7 +135,7 @@ def editar_fichaje(
     id_empleado: str,
     fecha: str,
     id_proyecto: str,
-    data: dict = Body(...),
+    data: HoraUpdate = Body(...),
     db: Session = Depends(get_db)
 ):
     try:
@@ -151,14 +152,48 @@ def editar_fichaje(
     if not fichaje:
         raise HTTPException(status_code=404, detail="Fichaje no encontrado")
 
-    if "horas_dia" in data:
-        fichaje.horas_dia = float(data["horas_dia"])
+    # ============================
+    # ACTUALIZAR HORAS
+    # ============================
+    if data.horas_dia is not None:
+        fichaje.horas_dia = float(data.horas_dia)
 
-    if "desc_tarea" in data:
-        fichaje.desc_tarea = data["desc_tarea"]
+    # ============================
+    # CAMBIAR PROYECTO (PK)
+    # ============================
+    if data.id_proyecto and data.id_proyecto != id_proyecto:
+
+        # Verificar que no exista ya un registro duplicado
+        existente = db.query(HorasTrab).filter(
+            HorasTrab.id_empleado == id_empleado,
+            HorasTrab.fecha == fecha_convertida,
+            HorasTrab.id_proyecto == data.id_proyecto
+        ).first()
+
+        if existente:
+            raise HTTPException(
+                status_code=400,
+                detail="Ya existe un fichaje con ese empleado, fecha y nuevo proyecto"
+            )
+
+        # Crear nuevo registro con el nuevo proyecto
+        nuevo = HorasTrab(
+            id_empleado=id_empleado,
+            fecha=fecha_convertida,
+            id_proyecto=data.id_proyecto,
+            id_sociedad=fichaje.id_sociedad,
+            id_cliente=fichaje.id_cliente,
+            horas_dia=fichaje.horas_dia,
+            desc_tarea=fichaje.desc_tarea
+        )
+
+        db.add(nuevo)
+        db.delete(fichaje)
+        db.commit()
+
+        return {"mensaje": "Proyecto actualizado correctamente"}
 
     db.commit()
-
     return {"mensaje": "Fichaje actualizado correctamente"}
 
 

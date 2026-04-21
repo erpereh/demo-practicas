@@ -1,3 +1,7 @@
+"""
+Esquema de horas trabajadas
+"""
+
 from pydantic import BaseModel
 from datetime import date
 from typing import Optional
@@ -15,6 +19,7 @@ class HoraCreate(BaseModel):
 
 class HoraUpdate(BaseModel):
     horas_dia: Optional[float] = None
+    id_proyecto: Optional[str] = None
     desc_tarea: Optional[str] = None
 
 
