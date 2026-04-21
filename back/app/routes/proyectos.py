@@ -22,9 +22,10 @@ router = APIRouter(
     tags=["Proyectos"]
 )
 
-
 # ============================================================
+
 # FUNCIÓN PRIVADA: ENRIQUECER PROYECTOS
+
 # ============================================================
 
 def _enriquecer(proyectos: list[Proyecto], db: Session) -> list[dict]:
@@ -42,6 +43,7 @@ def _enriquecer(proyectos: list[Proyecto], db: Session) -> list[dict]:
     Returns:
         list[dict]
     """
+
 
     ids = {p.id_cliente for p in proyectos if p.id_cliente}
     clientes_map: dict[str, Cliente] = {}
@@ -65,6 +67,7 @@ def _enriquecer(proyectos: list[Proyecto], db: Session) -> list[dict]:
             "tipo_pago": p.tipo_pago,
             "precio": p.precio,
             "fec_inicio": p.fec_inicio,
+            "fec_fin": p.fec_fin,  # 👈 AÑADIDO
             "cliente": None,
         }
 
@@ -81,7 +84,9 @@ def _enriquecer(proyectos: list[Proyecto], db: Session) -> list[dict]:
 
 
 # ============================================================
+
 # LISTAR PROYECTOS
+
 # ============================================================
 
 @router.get("/", response_model=list[ProyectoOut])
@@ -129,24 +134,19 @@ def listar_proyectos(
 
     return _enriquecer(proyectos, db)
 
-
 # ============================================================
+
 # CREAR PROYECTO
+
 # ============================================================
 
 @router.post(
-    "/",
-    response_model=ProyectoOut,
-    status_code=status.HTTP_201_CREATED
+"/",
+response_model=ProyectoOut,
+status_code=status.HTTP_201_CREATED
 )
 def crear_proyecto(payload: ProyectoCreate, db: Session = Depends(get_db)):
-    """
-    Crea un nuevo proyecto.
 
-    Validaciones:
-        - ID_PROYECTO único global.
-        - codigo_proyecto_tracker único por sociedad.
-    """
 
     existing = db.execute(
         select(Proyecto).where(
@@ -182,6 +182,7 @@ def crear_proyecto(payload: ProyectoCreate, db: Session = Depends(get_db)):
         tipo_pago=payload.tipo_pago,
         precio=payload.precio,
         fec_inicio=payload.fec_inicio,
+        fec_fin=payload.fec_fin,  # 👈 AÑADIDO
     )
 
     db.add(nuevo)
@@ -192,7 +193,9 @@ def crear_proyecto(payload: ProyectoCreate, db: Session = Depends(get_db)):
 
 
 # ============================================================
+
 # EDITAR PROYECTO
+
 # ============================================================
 
 @router.put("/{id_proyecto}", response_model=ProyectoOut)
@@ -201,10 +204,6 @@ def editar_proyecto(
     payload: ProyectoUpdate,
     db: Session = Depends(get_db)
 ):
-    """
-    Actualiza un proyecto existente.
-    Permite actualización parcial.
-    """
 
     id_proyecto = id_proyecto.strip().upper()
 
@@ -221,7 +220,7 @@ def editar_proyecto(
         )
 
     if payload.codigo_proyecto_tracker and \
-       payload.codigo_proyecto_tracker != proyecto.codigo_proyecto_tracker:
+    payload.codigo_proyecto_tracker != proyecto.codigo_proyecto_tracker:
 
         dup = db.execute(
             select(Proyecto).where(
@@ -251,6 +250,11 @@ def editar_proyecto(
     if payload.fec_inicio is not None:
         proyecto.fec_inicio = payload.fec_inicio
 
+    if payload.fec_fin is not None:  # 👈 AÑADIDO
+        proyecto.fec_fin = payload.fec_fin
+
+    print("PAYLOAD UPDATE:", payload)
+    
     db.commit()
     db.refresh(proyecto)
 
@@ -258,17 +262,17 @@ def editar_proyecto(
 
 
 # ============================================================
+
 # ELIMINAR PROYECTO
+
 # ============================================================
 
 @router.delete("/{id_proyecto}", status_code=status.HTTP_200_OK)
 def eliminar_proyecto(
-    id_proyecto: str,
-    db: Session = Depends(get_db)
+id_proyecto: str,
+db: Session = Depends(get_db)
 ):
-    """
-    Elimina un proyecto por ID.
-    """
+
 
     id_proyecto = id_proyecto.strip().upper()
 
@@ -288,3 +292,4 @@ def eliminar_proyecto(
     db.commit()
 
     return {"mensaje": "Proyecto eliminado correctamente"}
+
