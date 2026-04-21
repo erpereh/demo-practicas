@@ -73,3 +73,10 @@ class Proyecto(Base):
         "FEC_INICIO",
         Date
     )
+
+    # Fecha de finalización del proyecto 
+    fec_fin = Column(
+        "FEC_FIN",
+        Date,
+        nullable=True
+    )

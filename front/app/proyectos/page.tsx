@@ -23,55 +23,58 @@ import {
 // ------------- ENDPOINTS API -------------
 // Base de proyectos (CRUD) y base de clientes (para rellenar el <select>)
 // Nota: aquí están hardcodeados a localhost. Si usas variable de entorno, lo normal es API_URL.
-const API_BASE          = "http://localhost:8000/api/proyectos";
+const API_BASE = "http://localhost:8000/api/proyectos";
 const API_CLIENTES_BASE = "http://localhost:8000/api/clientes";
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 // Tipado mínimo del cliente para mostrar nombre en tabla y cargar el select.
 interface Cliente {
     id_cliente: string;
-    n_cliente:  string;
+    n_cliente: string;
 }
 
 // Tipado del proyecto que devuelve el backend:
 // - id_cliente guarda el ID real de BD
 // - cliente puede venir como objeto "resuelto" (embed) para mostrar n_cliente directamente
 interface Proyecto {
-    id_proyecto:             string;
-    id_sociedad:             string;
-    id_cliente:              string;   // ID guardado en BD
-    nombre_proyecto:         string;
+    id_proyecto: string;
+    id_sociedad: string;
+    id_cliente: string;
+    nombre_proyecto: string;
     codigo_proyecto_tracker: string;
-    tipo_pago:               string;
-    precio:                  number | null;
-    fec_inicio:              string | null;
-    cliente:                 Cliente | null; // objeto resuelto por el backend
+    tipo_pago: string;
+    precio: number | null;
+    fec_inicio: string | null;
+    fec_fin: string | null; // 👈 AÑADIDO (fecha fin desde backend)
+    cliente: Cliente | null;
 }
 
 // Tipado del formulario del modal (strings para inputs):
 // - precio y fec_inicio se manejan como string y se transforman al guardar
 interface ProyectoForm {
-    id_proyecto:             string;
-    id_sociedad:             string;
-    id_cliente:              string;   // ID que se enviará al backend
-    nombre_proyecto:         string;
+    id_proyecto: string;
+    id_sociedad: string;
+    id_cliente: string;
+    nombre_proyecto: string;
     codigo_proyecto_tracker: string;
-    tipo_pago:               string;
-    precio:                  string;
-    fec_inicio:              string;
+    tipo_pago: string;
+    precio: string;
+    fec_inicio: string;
+    fec_fin: string; // 👈 AÑADIDO (campo en formulario)
 }
 
 // ------------- ESTADO INICIAL DEL FORMULARIO -------------
 // Valores por defecto al crear un proyecto nuevo.
 const FORM_EMPTY: ProyectoForm = {
-    id_proyecto:             "",
-    id_sociedad:             "",
-    id_cliente:              "",
-    nombre_proyecto:         "",
+    id_proyecto: "",
+    id_sociedad: "",
+    id_cliente: "",
+    nombre_proyecto: "",
     codigo_proyecto_tracker: "",
-    tipo_pago:               "abierto",
-    precio:                  "",
-    fec_inicio:              "",
+    tipo_pago: "abierto",
+    precio: "",
+    fec_inicio: "",
+    fec_fin: "", // 👈 AÑADIDO
 };
 
 export default function ProyectosPage() {
@@ -85,11 +88,11 @@ export default function ProyectosPage() {
     // saving: carga al guardar (POST/PUT)
     // apiError: error de validación del backend al guardar
     const [proyectos, setProyectos] = useState<Proyecto[]>([]);
-    const [clientes,  setClientes]  = useState<Cliente[]>([]);
+    const [clientes, setClientes] = useState<Cliente[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
-    const [loading,  setLoading]  = useState(true);
-    const [error,    setError]    = useState<string | null>(null);
-    const [saving,   setSaving]   = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [saving, setSaving] = useState(false);
     const [apiError, setApiError] = useState<string | null>(null);
 
     // ------------- ESTADO MODALES -------------
@@ -97,7 +100,7 @@ export default function ProyectosPage() {
     // editingProyecto: si existe, modal en modo edición
     // form: datos del formulario del modal
     // deleteId: si existe, abre modal de confirmación para borrar ese proyecto
-    const [isModalOpen,     setIsModalOpen]     = useState(false);
+    const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProyecto, setEditingProyecto] = useState<Proyecto | null>(null);
     const [form, setForm] = useState<ProyectoForm>(FORM_EMPTY);
     const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -167,18 +170,24 @@ export default function ProyectosPage() {
     // - guarda el proyecto seleccionado
     // - precarga el formulario con los datos actuales
     // - convierte precio number -> string
-    // - mantiene fec_inicio como string compatible con <input type="date">
+   // - mantiene fec_inicio y fec_fin en formato compatible con <input type="date">
     const openEdit = (proyecto: Proyecto) => {
         setEditingProyecto(proyecto);
         setForm({
-            id_proyecto:             proyecto.id_proyecto,
-            id_sociedad:             proyecto.id_sociedad,
-            id_cliente:              proyecto.id_cliente,
-            nombre_proyecto:         proyecto.nombre_proyecto,
+            id_proyecto: proyecto.id_proyecto,
+            id_sociedad: proyecto.id_sociedad,
+            id_cliente: proyecto.id_cliente,
+            nombre_proyecto: proyecto.nombre_proyecto,
             codigo_proyecto_tracker: proyecto.codigo_proyecto_tracker,
-            tipo_pago:               proyecto.tipo_pago,
-            precio:                  proyecto.precio !== null ? String(proyecto.precio) : "",
-            fec_inicio:              proyecto.fec_inicio ?? "",
+            tipo_pago: proyecto.tipo_pago,
+            precio: proyecto.precio !== null ? String(proyecto.precio) : "",
+            fec_inicio: proyecto.fec_inicio
+                ? proyecto.fec_inicio.slice(0, 10)
+                : "",
+
+            fec_fin: proyecto.fec_fin
+                ? proyecto.fec_fin.slice(0, 10)
+                : "",
         });
         setApiError(null);
         setIsModalOpen(true);
@@ -201,11 +210,17 @@ export default function ProyectosPage() {
                 // ------------- UPDATE (PUT) -------------
                 // Construye body parcial para no tocar campos que no se están editando.
                 const body: Record<string, any> = {};
-                if (form.nombre_proyecto)         body.nombre_proyecto         = form.nombre_proyecto;
+
+                if (form.nombre_proyecto) body.nombre_proyecto = form.nombre_proyecto;
                 if (form.codigo_proyecto_tracker) body.codigo_proyecto_tracker = form.codigo_proyecto_tracker;
-                if (form.tipo_pago)               body.tipo_pago               = form.tipo_pago;
-                if (form.precio !== "")           body.precio                  = parseFloat(form.precio);
-                if (form.fec_inicio)              body.fec_inicio              = form.fec_inicio;
+                if (form.tipo_pago) body.tipo_pago = form.tipo_pago.toUpperCase(); 
+                if (form.precio !== "") body.precio = parseFloat(form.precio);
+
+                // 👇 IMPORTANTE
+                body.fec_inicio = form.fec_inicio || null;
+                body.fec_fin = form.fec_fin || null;             // 👈 AÑADIDO
+
+                console.log("BODY UPDATE:", body);
 
                 res = await fetch(`${API_BASE}/${editingProyecto.id_proyecto}`, {
                     method: "PUT",
@@ -215,16 +230,22 @@ export default function ProyectosPage() {
             } else {
                 // ------------- CREATE (POST) -------------
                 // id_cliente viene del <select> (value=ID) y se envía al backend como FK.
-                const body: Record<string, any> = {
-                    id_proyecto:             form.id_proyecto,
-                    id_sociedad:             form.id_sociedad,
-                    id_cliente:              form.id_cliente,
-                    nombre_proyecto:         form.nombre_proyecto,
+               const body: Record<string, any> = {
+                    id_proyecto: form.id_proyecto,
+                    id_sociedad: form.id_sociedad,
+                    id_cliente: form.id_cliente,
+                    nombre_proyecto: form.nombre_proyecto,
                     codigo_proyecto_tracker: form.codigo_proyecto_tracker,
-                    tipo_pago:               form.tipo_pago,
+                    tipo_pago: form.tipo_pago.toUpperCase(),
+
+                    // 👇 IMPORTANTE
+                    fec_inicio: form.fec_inicio || null,
+                    fec_fin: form.fec_fin || null,
                 };
-                if (form.precio !== "") body.precio     = parseFloat(form.precio);
-                if (form.fec_inicio)    body.fec_inicio = form.fec_inicio;
+
+                if (form.precio !== "") body.precio = parseFloat(form.precio);
+
+                console.log("BODY CREATE:", body);
 
                 res = await fetch(`${API_BASE}/`, {
                     method: "POST",
@@ -236,18 +257,19 @@ export default function ProyectosPage() {
             // Si el backend devuelve error, intenta leer detail y lo muestra
             if (!res.ok) {
                 const err = await res.json();
-                throw new Error(err.detail || `Error ${res.status}`);
-            }
 
-            // Si OK: cierra modal y recarga listado con el filtro actual
-            setIsModalOpen(false);
-            fetchProyectos(searchTerm || undefined);
-        } catch (e: any) {
-            setApiError(e.message || "Error al guardar");
-        } finally {
-            setSaving(false);
-        }
-    };
+                // 👇 DEBUG: ver error real del backend
+                console.log("ERROR BACKEND:", err);
+
+                throw new Error(
+                    typeof err.detail === "string"
+                        ? err.detail
+                        : JSON.stringify(err.detail)
+                );
+            }
+        } catch {}
+    }
+
 
     // ── ELIMINAR ───────────────────────────────────────────────────────────────
     // Borra un proyecto definitivamente:
@@ -329,68 +351,75 @@ export default function ProyectosPage() {
                         <Loader2 size={20} className="animate-spin" /> Cargando proyectos...
                     </div>
                 ) : /* Estado: error */
-                error ? (
-                    <div className="flex items-center justify-center py-20 text-red-500 gap-2">
-                        <AlertCircle size={20} /> {error}
-                    </div>
-                ) : /* Estado: sin datos */
-                proyectos.length === 0 ? (
-                    <div className="flex items-center justify-center py-20 text-gray-400">
-                        No se encontraron proyectos.
-                    </div>
-                ) : (
-                    // Estado: lista con filas
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-gray-50/50 border-b border-gray-200 text-xs uppercase tracking-wider text-gray-500 font-semibold">
-                                <th className="px-6 py-4">ID Proyecto</th>
-                                <th className="px-6 py-4">Nombre del Proyecto</th>
-                                <th className="px-6 py-4">Cliente</th>
-                                <th className="px-6 py-4">Tipo de Pago</th>
-                                <th className="px-6 py-4">Cód. Tracker</th>
-                                <th className="px-6 py-4 text-right">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {proyectos.map(proyecto => (
-                                <tr key={proyecto.id_proyecto} className="hover:bg-gray-50/50 transition-colors group">
-                                    <td className="px-6 py-4">
-                                        <span className="font-mono text-xs bg-gray-50 text-gray-600 px-2 py-1 rounded border border-gray-200">
-                                            {proyecto.id_proyecto}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 font-bold text-quality-dark">{proyecto.nombre_proyecto}</td>
+                    error ? (
+                        <div className="flex items-center justify-center py-20 text-red-500 gap-2">
+                            <AlertCircle size={20} /> {error}
+                        </div>
+                    ) : /* Estado: sin datos */
+                        proyectos.length === 0 ? (
+                            <div className="flex items-center justify-center py-20 text-gray-400">
+                                No se encontraron proyectos.
+                            </div>
+                        ) : (
+                            // Estado: lista con filas
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-gray-50/50 border-b border-gray-200 text-xs uppercase tracking-wider text-gray-500 font-semibold">
+                                        <th className="px-6 py-4">ID Proyecto</th>
+                                        <th className="px-6 py-4">Nombre del Proyecto</th>
+                                        <th className="px-6 py-4">Cliente</th>
+                                        <th className="px-6 py-4">Tipo de Pago</th>
+                                        <th className="px-6 py-4">Cód. Tracker</th>
+                                        <th className="px-6 py-4">Fecha Fin</th>
+                                        <th className="px-6 py-4 text-right">Acciones</th>
+                                    </tr>
+                                </thead>
 
-                                    {/* Muestra nombre del cliente si viene embed; si no, usa ID */}
-                                    <td className="px-6 py-4 text-gray-600">{nombreCliente(proyecto)}</td>
-
-                                    <td className="px-6 py-4">
-                                        <span className="text-sm font-medium text-gray-700 bg-gray-100 px-3 py-1 rounded-full capitalize">
-                                            {proyecto.tipo_pago}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className="font-mono text-sm bg-gray-50 text-gray-700 px-3 py-1.5 rounded-md border border-gray-200 tracking-wider">
-                                            {proyecto.codigo_proyecto_tracker}
-                                        </span>
-                                    </td>
-
-                                    {/* Acciones visibles en hover */}
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => openEdit(proyecto)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
-                                                <Edit size={16} />
-                                            </button>
-                                            <button onClick={() => setDeleteId(proyecto.id_proyecto)} className="p-2 text-gray-400 hover:text-quality-red hover:bg-red-50 rounded-lg">
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
+                                <tbody className="divide-y divide-gray-100">
+                                    {proyectos.map(proyecto => (
+                                        <tr key={proyecto.id_proyecto} className="hover:bg-gray-50/50 transition-colors group">
+                                            <td className="px-6 py-4">
+                                                <span className="font-mono text-xs bg-gray-50 text-gray-600 px-2 py-1 rounded border border-gray-200">
+                                                    {proyecto.id_proyecto}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 font-bold text-quality-dark">
+                                                {proyecto.nombre_proyecto}
+                                            </td>
+                                            {/* Muestra nombre del cliente si viene embed; si no, usa ID */}
+                                            <td className="px-6 py-4 text-gray-600">
+                                                {nombreCliente(proyecto)}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="text-sm font-medium text-gray-700 bg-gray-100 px-3 py-1 rounded-full capitalize">
+                                                    {proyecto.tipo_pago}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="font-mono text-sm bg-gray-50 text-gray-700 px-3 py-1.5 rounded-md border border-gray-200 tracking-wider">
+                                                    {proyecto.codigo_proyecto_tracker}
+                                                </span>
+                                            </td>
+                                            {/* 👇 FECHA FIN */}
+                                            <td className="px-6 py-4">
+                                                {proyecto.fec_fin || "-"}
+                                            </td>
+                                            {/* 👇 ACCIONES */}
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button onClick={() => openEdit(proyecto)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
+                                                        <Edit size={16} />
+                                                    </button>
+                                                    <button onClick={() => setDeleteId(proyecto.id_proyecto)} className="p-2 text-gray-400 hover:text-quality-red hover:bg-red-50 rounded-lg">
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
             </div>
 
             {/* MODAL CREAR / EDITAR */}
@@ -398,13 +427,12 @@ export default function ProyectosPage() {
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm">
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden">
 
-                        {/* Cabecera modal */}
                         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                             <h3 className="text-lg font-bold text-quality-dark flex items-center gap-2">
                                 <FolderKanban size={20} className="text-quality-red" />
                                 {editingProyecto ? "Editar Proyecto" : "Crear Nuevo Proyecto"}
                             </h3>
-                            <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-700 transition-colors p-1 rounded-md hover:bg-gray-200">
+                            <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-700 p-1 rounded-md hover:bg-gray-200">
                                 <X size={20} />
                             </button>
                         </div>
@@ -528,12 +556,22 @@ export default function ProyectosPage() {
                                         placeholder="0.00"
                                     />
                                 </div>
+
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Fecha Inicio</label>
                                     <input
                                         type="date"
                                         value={form.fec_inicio}
                                         onChange={e => updateForm("fec_inicio", e.target.value)}
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                                    />
+
+                                    {/* 👇 NUEVO CAMPO */}
+                                    <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Fecha Fin</label>
+                                    <input
+                                        type="date"
+                                        value={form.fec_fin}
+                                        onChange={e => updateForm("fec_fin", e.target.value)}
                                         className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-quality-red/20 focus:border-quality-red outline-none"
                                     />
                                 </div>

@@ -1,17 +1,26 @@
 # ESQUEMA Pydantic para PROYECTOS
+
 # Define las estructuras de entrada/salida para PROYECTOS y aplica validaciones fuertes:
+
 # - normaliza textos (IDs y nombres)
+
 # - valida TIPO_PAGO contra un conjunto permitido
+
 # - valida y convierte fechas (ISO 8601)
+
 # - valida y cuantiza PRECIO con Decimal (2 decimales, no negativo, límite máximo)
+
 import re
 from datetime import date
 from decimal import Decimal
 from typing import Optional
 
 # ------------- COMPATIBILIDAD PYDANTIC v1 / v2 -------------
+
 # Importa Pydantic detectando si estamos en v2 (field_validator) o v1 (validator),
+
 # y define la bandera V2 para elegir el decorador correcto en los validadores.
+
 try:
     from pydantic import BaseModel, Field, field_validator
     V2 = True
@@ -20,9 +29,13 @@ except Exception:
     V2 = False
 
 # ------------- LIMPIA TEXTO -------------
+
 # - quita espacios al principio y al final
+
 # - colapsa espacios múltiples a uno solo
+
 # - devuelve None si el texto queda vacío
+
 def _clean_text(s: str | None) -> str | None:
     if s is None:
         return None
@@ -30,8 +43,11 @@ def _clean_text(s: str | None) -> str | None:
     return s if s else None
 
 # ------------- TIPOS DE PAGO VÁLIDOS -------------
+
 # Conjunto de valores permitidos para el campo TIPO_PAGO del proyecto.
+
 # Se usa para impedir valores fuera del catálogo (regla de negocio).
+
 TIPOS_PAGO_VALIDOS = { "ABIERTO", "CERRADO", "FRACCIONADO" }
 
 # ------------- VALIDA TIPO_PAGO -------------
@@ -44,18 +60,19 @@ def _validate_tipo_pago(v: str) -> str:
         raise ValueError(f"TIPO_PAGO no válido. Opciones: {', '.join(sorted(TIPOS_PAGO_VALIDOS))}")
     return v
 
-# ------------- VALIDA FECHA (FEC_INICIO) -------------
+# ------------- VALIDA FECHA -------------
+
 # - admite date ya construido o string
+
 # - si es string, intenta parsear formato ISO (YYYY-MM-DD)
-# - si falla, lanza error explicando el formato esperado
+
 def _validate_fecha(v: date | str) -> date:
     if isinstance(v, date):
         return v
     try:
         return date.fromisoformat(str(v).strip())
     except ValueError:
-        raise ValueError("FEC_INICIO debe tener formato ISO 8601: YYYY-MM-DD")
-
+        raise ValueError("Fecha debe tener formato ISO 8601: YYYY-MM-DD")
 
 # ------------- VALIDA PRECIO -------------
 # - admite Decimal/float/None
@@ -89,6 +106,7 @@ class ClienteEmbed(BaseModel):
         class Config:
             orm_mode = True
 
+
 # ------------- CREAR PROYECTOS -------------
 # Modelo de entrada para crear un proyecto:
 # obliga a informar identificadores (sociedad/cliente/proyecto), nombre, tracker, tipo de pago y fecha de inicio;
@@ -102,6 +120,9 @@ class ProyectoCreate(BaseModel):
     tipo_pago: str = Field(..., min_length = 1, max_length = 50)
     precio: Decimal | None = Field(default = None)
     fec_inicio: date = Field(...)
+
+    # Fecha de finalización del proyecto (opcional)
+    fec_fin: Optional[date] = Field(default=None)
 
     if V2:
         # Validador de ProyectoCreate.id_sociedad:
@@ -124,7 +145,7 @@ class ProyectoCreate(BaseModel):
         def val_id_proyecto(cls, v: str) -> str:
             v = (_clean_text(v) or "").upper()
             if not re.fullmatch(r"[A-Z0-9-]{1,50}", v):
-                raise ValueError("ID_PROYECTO: alfanumérico (y _), 2-5 caracteres, sin espacios")
+                raise ValueError("ID_PROYECTO inválido")
             return v
 
         # Validador de ProyectoCreate.id_cliente:
@@ -136,7 +157,7 @@ class ProyectoCreate(BaseModel):
         def val_id_cliente(cls, v: str) -> str:
             v = (_clean_text(v) or "").upper()
             if not re.fullmatch(r"[A-Z0-9-]{1,50}", v):
-                raise ValueError("ID_CLIENTE: alfanumérico (y _), 2-5 caracteres, sin espacios")
+                raise ValueError("ID_CLIENTE inválido")
             return v
         
         # Validador de ProyectoCreate.nombre_proyecto:
@@ -173,7 +194,15 @@ class ProyectoCreate(BaseModel):
         # - exige formato ISO si viene como texto
         @field_validator("fec_inicio", mode="before")
         @classmethod
-        def val_fecha(cls, v) -> date:
+        def val_fecha_inicio(cls, v) -> date:
+            return _validate_fecha(v)
+
+        # Validación de fecha fin (opcional)
+        @field_validator("fec_fin", mode="before")
+        @classmethod
+        def val_fecha_fin(cls, v) -> date | None:
+            if v is None:
+                return None
             return _validate_fecha(v)
 
         # Validador de ProyectoCreate.precio:
@@ -232,6 +261,7 @@ class ProyectoCreate(BaseModel):
         def val_precio(cls, v):
             return _validate_precio(v)
 
+
 # ------------- ACTUALIZAR PROYECTOS -------------
 # Modelo de entrada para actualizar un proyecto:
 # todos los campos son opcionales para permitir cambios parciales,
@@ -242,6 +272,10 @@ class ProyectoUpdate(BaseModel):
     tipo_pago: str | None = Field(default = None, min_length = 1, max_length = 50)
     precio: Decimal | None = Field(default = None)
     fec_inicio: date | None = Field(default = None)
+
+    
+    # Fecha de finalización del proyecto (opcional)
+    fec_fin: date | None = Field(default = None)
 
     if V2:
         # Validador de ProyectoUpdate.nombre_proyecto:
@@ -293,6 +327,12 @@ class ProyectoUpdate(BaseModel):
         def val_precio(cls, v) -> Decimal | None:
             return _validate_precio(v)
 
+        @field_validator("fec_inicio", "fec_fin", mode="before")
+        @classmethod
+        def val_fechas(cls, v):
+            if v is None:
+                return None
+            return _validate_fecha(v)
     else:
         @validator("nombre_proyecto")
         def val_nombre(cls, v):
@@ -320,6 +360,12 @@ class ProyectoUpdate(BaseModel):
             if v is None:
                 return None
             return _validate_fecha(v)
+        
+        @validator("fec_inicio", "fec_fin", pre=True, always=True)
+        def val_fechas(cls, v):
+            if v is None:
+                return None
+            return _validate_fecha(v)
 
         @validator("precio", pre=True, always=True)
         def val_precio(cls, v):
@@ -342,6 +388,11 @@ class ProyectoOut(BaseModel):
     tipo_pago: str
     precio: Decimal | None = None
     fec_inicio: date
+
+    
+    # Fecha de finalización del proyecto
+    fec_fin: Optional[date] = None
+
     cliente: Optional[ClienteEmbed] = None
 
     if V2:
@@ -349,3 +400,4 @@ class ProyectoOut(BaseModel):
     else:
         class Config:
             orm_mode = True
+    
