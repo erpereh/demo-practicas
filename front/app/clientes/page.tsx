@@ -25,6 +25,7 @@ type ClienteAPI = {
   direccion?: string | null;
   email?: string | null;          // CAMBIO: añadido campo email
   telefono?: string | null;       // CAMBIO: añadido campo teléfono
+  id_banco_cobro?: number | null;
 };
 
 // ------------- PARSEO DE ERRORES FASTAPI -------------
@@ -56,6 +57,7 @@ export default function ClientesPage() {
   // isLoading: loading del GET inicial
   // isSaving: loading del POST/PUT
   const [clientes, setClientes] = useState<ClienteAPI[]>([]);
+  const [bancos, setBancos] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -75,6 +77,7 @@ export default function ClientesPage() {
   const [direccion, setDireccion] = useState("");
   const [email, setEmail] = useState("");         // CAMBIO: añadido campo email
   const [telefono, setTelefono] = useState("");   // CAMBIO: añadido campo teléfono
+  const [idBancoCobro, setIdBancoCobro] = useState<string>("");
 
   // ------------- ESTADO ERRORES -------------
   // erroresGlobal: errores de carga/listado (se muestran fuera del modal)
@@ -102,27 +105,41 @@ export default function ClientesPage() {
   // - si KO: muestra mensaje en erroresGlobal
   // - al final desactiva loading
   const cargarClientes = async () => {
-    try {
-      setIsLoading(true);
-      setErroresGlobal({});
-      const res = await fetch(`${API_URL}/api/clientes/`);
-      if (!res.ok) throw new Error(await parseFastApiError(res));
-      const data: ClienteAPI[] = await res.json();
-      setClientes(data);
-    } catch (e: any) {
-      setErroresGlobal({ general: e?.message || "Error cargando clientes" });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  try {
+    setIsLoading(true);
+    setErroresGlobal({});
+    const res = await fetch(`${API_URL}/api/clientes/`);
+    if (!res.ok) throw new Error(await parseFastApiError(res));
+    const data: ClienteAPI[] = await res.json();
+    setClientes(data);
+  } catch (e: any) {
+    setErroresGlobal({ general: e?.message || "Error cargando clientes" });
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+// 
+const cargarBancos = async () => {
+  try {
+    const res = await fetch(`${API_URL}/api/bancos/`);
+    if (!res.ok) return;
+
+    const data = await res.json();
+    console.log("BANCOS:", data); // 👈 debug
+
+    setBancos(data);
+  } catch (e) {
+    console.error("Error cargando bancos", e);
+  }
+};
 
   // ------------- EFECTO INICIAL -------------
   // Ejecuta cargarClientes al entrar en la página (montaje del componente)
-  useEffect(() => {
-    cargarClientes();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+ useEffect(() => {
+  cargarClientes();
+  cargarBancos(); // 
+}, []);
   // ------------- FILTRADO EN FRONT -------------
   // Filtra por nombre (n_cliente) o cif usando el searchTerm
   const clientesFiltrados = clientes.filter(
@@ -141,6 +158,7 @@ export default function ClientesPage() {
   // - resetea el formulario con valores por defecto
   // - abre el modal
   const abrirModalNuevo = () => {
+    setIdBancoCobro("");
     setEditandoId(null);
     setErroresModal({});
     setIdSociedad("01");
@@ -159,6 +177,7 @@ export default function ClientesPage() {
   // - precarga el formulario con los datos del cliente seleccionado
   // - abre el modal
   const abrirModalEditar = (c: ClienteAPI) => {
+    setIdBancoCobro(c.id_banco_cobro ? String(c.id_banco_cobro) : "");
     setEditandoId(c.id_cliente);
     setErroresModal({});
     setIdSociedad(c.id_sociedad);
@@ -257,6 +276,7 @@ export default function ClientesPage() {
         // Construye payload alineado con el schema del backend:
         // normaliza mayúsculas y convierte campos opcionales vacíos a null
         const payloadCreate = {
+          id_banco_cobro: idBancoCobro ? Number(idBancoCobro) : null,
           id_sociedad: idSociedad.trim().toUpperCase(),
           id_cliente: idCliente.trim().toUpperCase(),
           n_cliente: nombre.trim(),
@@ -284,6 +304,7 @@ export default function ClientesPage() {
         // ------------- EDITAR (PUT) -------------
         // Construye payload de actualización: solo campos editables
         const payloadUpdate = {
+          id_banco_cobro: idBancoCobro ? Number(idBancoCobro) : null,
           n_cliente: nombre.trim(),
           cif: cif.trim().toUpperCase(),
           persona_contacto: contacto.trim() || null,
@@ -351,279 +372,298 @@ export default function ClientesPage() {
   };
 
   // ======================
-// ------------- RENDER -------------
-// ======================
-return (
-  <div className="p-10 max-w-7xl mx-auto relative">
-    {/* ------------- CABECERA ------------- */}
-    <div className="flex justify-between items-center mb-8">
-      <div>
-        <h1 className="text-3xl font-bold text-quality-dark">Clientes</h1>
-        <p className="text-gray-500">Directorio de empresas a facturar.</p>
+  // ------------- RENDER -------------
+  // ======================
+  return (
+    <div className="p-10 max-w-7xl mx-auto relative">
+      {/* ------------- CABECERA ------------- */}
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-quality-dark">Clientes</h1>
+          <p className="text-gray-500">Directorio de empresas a facturar.</p>
+        </div>
+        <button
+          onClick={abrirModalNuevo}
+          className="bg-quality-red text-white px-5 py-2.5 rounded-lg flex items-center gap-2 hover:bg-red-700 transition"
+        >
+          <Plus size={18} /> Nuevo Cliente
+        </button>
       </div>
-      <button
-        onClick={abrirModalNuevo}
-        className="bg-quality-red text-white px-5 py-2.5 rounded-lg flex items-center gap-2 hover:bg-red-700 transition"
-      >
-        <Plus size={18} /> Nuevo Cliente
-      </button>
-    </div>
 
-    {/* ------------- ERROR GLOBAL (LISTADO) ------------- */}
-    {erroresGlobal.general && (
-      <div className="bg-red-50 text-red-800 p-3 rounded mb-4 flex gap-2">
-        <AlertCircle size={18} /> {erroresGlobal.general}
-      </div>
-    )}
+      {/* ------------- ERROR GLOBAL (LISTADO) ------------- */}
+      {erroresGlobal.general && (
+        <div className="bg-red-50 text-red-800 p-3 rounded mb-4 flex gap-2">
+          <AlertCircle size={18} /> {erroresGlobal.general}
+        </div>
+      )}
 
-    {/* ------------- BUSCADOR ------------- */}
-    <div className="bg-white p-4 rounded-t-xl border border-gray-200 border-b-0 flex gap-3">
-      <div className="relative w-full max-w-md">
-        <Search
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-          size={18}
-        />
-        <input
-          type="text"
-          placeholder="Buscar empresa o CIF..."
-          className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg bg-white text-gray-700 outline-none focus:border-quality-red"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-      </div>
-    </div>
-
-    {/* ------------- TABLA ------------- */}
-    <div className="bg-white border border-gray-200 rounded-b-xl overflow-hidden shadow-sm">
-      <table className="w-full text-left">
-        <thead className="bg-gray-50 border-b border-gray-200 text-xs uppercase text-gray-500 font-semibold">
-          <tr>
-            <th className="px-6 py-4">Empresa</th>
-            <th className="px-6 py-4">Contacto</th>
-            {/* CAMBIO: añadida columna Email */}
-            <th className="px-6 py-4">Email</th>
-            {/* CAMBIO: añadida columna Teléfono */}
-            <th className="px-6 py-4">Teléfono</th>
-            <th className="px-6 py-4">Dirección</th>
-            <th className="px-6 py-4 text-right">Acciones</th>
-          </tr>
-        </thead>
-
-        <tbody className="divide-y divide-gray-100">
-          {isLoading ? (
-            <tr>
-              {/* CAMBIO: ajustado colspan por las dos columnas nuevas */}
-              <td colSpan={6} className="p-10 text-center">
-                <Loader2 className="animate-spin inline mr-2" /> Cargando...
-              </td>
-            </tr>
-          ) : clientesFiltrados.length === 0 ? (
-            <tr>
-              {/* CAMBIO: ajustado colspan por las dos columnas nuevas */}
-              <td colSpan={6} className="p-10 text-center">
-                No hay clientes.
-              </td>
-            </tr>
-          ) : (
-            clientesFiltrados.map((c) => (
-              <tr
-                key={c.id_cliente}
-                className="hover:bg-gray-50 group transition-colors"
-              >
-                <td className="px-6 py-4">
-                  <p className="font-bold text-quality-dark">{c.n_cliente}</p>
-                  <p className="text-xs text-gray-500">
-                    ID: {c.id_cliente} · CIF: {c.cif}
-                  </p>
-                </td>
-                <td className="px-6 py-4 text-gray-600">
-                  {c.persona_contacto || "-"}
-                </td>
-                {/* CAMBIO: añadida celda para Email */}
-                <td className="px-6 py-4 text-gray-600">
-                  {c.email || "-"}
-                </td>
-                {/* CAMBIO: añadida celda para Teléfono */}
-                <td className="px-6 py-4 text-gray-600">
-                  {c.telefono || "-"}
-                </td>
-                <td className="px-6 py-4 text-sm text-gray-600">
-                  {c.direccion || "-"}
-                </td>
-
-                <td className="px-6 py-4 text-right">
-                  <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
-                      title="Editar"
-                      onClick={() => abrirModalEditar(c)}
-                    >
-                      <Edit size={16} />
-                    </button>
-                    <button
-                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
-                      onClick={() => handleArchivar(c.id_cliente)}
-                      title="Archivar"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-
-    {/* ------------- MODAL (CREAR / EDITAR) ------------- */}
-    {isModalOpen && (
-      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm">
-        <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
-          <div className="flex justify-between items-center mb-6 border-b pb-4">
-            <h3 className="text-lg font-bold text-quality-dark flex gap-2 items-center">
-              <Building2 className="text-quality-red" />{" "}
-              {esEdicion ? "Editar Cliente" : "Nuevo Cliente"}
-            </h3>
-            <button onClick={cerrarModal}>
-              <X className="text-gray-400 hover:text-black" />
-            </button>
-          </div>
-
-          {erroresModal.general && (
-            <div className="bg-red-50 text-red-800 p-3 rounded mb-4 flex gap-2">
-              <AlertCircle size={18} /> {erroresModal.general}
-            </div>
-          )}
-
-          <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="text-sm font-medium block mb-1">
-                  Sociedad
-                </label>
-                <input
-                  className={`w-full border rounded-lg px-3 py-2 ${
-                    esEdicion
-                      ? "bg-gray-100 text-gray-500 cursor-not-allowed"
-                      : ""
-                  }`}
-                  value={idSociedad}
-                  onChange={(e) => setIdSociedad(e.target.value)}
-                  disabled={esEdicion}
-                />
-              </div>
-              <div className="col-span-2">
-                <label className="text-sm font-medium block mb-1">
-                  ID Cliente
-                </label>
-                <input
-                  className={`w-full border rounded-lg px-3 py-2 ${
-                    esEdicion
-                      ? "bg-gray-100 text-gray-500 cursor-not-allowed"
-                      : ""
-                  }`}
-                  placeholder="ATOS, CYC..."
-                  value={idCliente}
-                  onChange={(e) => setIdCliente(e.target.value)}
-                  disabled={esEdicion}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-2">
-                <label className="text-sm font-medium block mb-1">
-                  Empresa
-                </label>
-                <input
-                  className="w-full border rounded-lg px-3 py-2"
-                  placeholder="Tech S.L."
-                  value={nombre}
-                  onChange={(e) => setNombre(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium block mb-1">
-                  CIF/NIF
-                </label>
-                <input
-                  className="w-full border rounded-lg px-3 py-2"
-                  placeholder="B123..."
-                  value={cif}
-                  onChange={(e) => setCif(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium block mb-1">
-                Contacto
-              </label>
-              <input
-                className="w-full border rounded-lg px-3 py-2"
-                placeholder="Nombre persona"
-                value={contacto}
-                onChange={(e) => setContacto(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium block mb-1">
-                Email
-              </label>
-              <input
-                className="w-full border rounded-lg px-3 py-2"
-                placeholder="contacto@empresa.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium block mb-1">
-                Teléfono
-              </label>
-              <input
-                className="w-full border rounded-lg px-3 py-2"
-                placeholder="+34 912 345 678"
-                value={telefono}
-                onChange={(e) => setTelefono(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium block mb-1">
-                Dirección
-              </label>
-              <input
-                className="w-full border rounded-lg px-3 py-2"
-                placeholder="Calle..."
-                value={direccion}
-                onChange={(e) => setDireccion(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-            <button
-              onClick={cerrarModal}
-              className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleGuardar}
-              disabled={isSaving}
-              className="px-4 py-2 bg-quality-dark text-white rounded-lg flex items-center gap-2 disabled:opacity-50"
-            >
-              {isSaving && <Loader2 className="animate-spin" size={16} />}
-              {esEdicion ? "Guardar cambios" : "Guardar"}
-            </button>
-          </div>
+      {/* ------------- BUSCADOR ------------- */}
+      <div className="bg-white p-4 rounded-t-xl border border-gray-200 border-b-0 flex gap-3">
+        <div className="relative w-full max-w-md">
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            size={18}
+          />
+          <input
+            type="text"
+            placeholder="Buscar empresa o CIF..."
+            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg bg-white text-gray-700 outline-none focus:border-quality-red"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
       </div>
-    )}
-  </div>
-);
+
+      {/* ------------- TABLA ------------- */}
+      <div className="bg-white border border-gray-200 rounded-b-xl overflow-hidden shadow-sm">
+        <table className="w-full text-left">
+          <thead className="bg-gray-50 border-b border-gray-200 text-xs uppercase text-gray-500 font-semibold">
+            <tr>
+              <th className="px-6 py-4">Empresa</th>
+              <th className="px-6 py-4">Contacto</th>
+              {/* CAMBIO: añadida columna Email */}
+              <th className="px-6 py-4">Email</th>
+              {/* CAMBIO: añadida columna Teléfono */}
+              <th className="px-6 py-4">Teléfono</th>
+              <th className="px-6 py-4">Dirección</th>
+              <th className="px-6 py-4 text-right">Acciones</th>
+            </tr>
+          </thead>
+
+          <tbody className="divide-y divide-gray-100">
+            {isLoading ? (
+              <tr>
+                {/* CAMBIO: ajustado colspan por las dos columnas nuevas */}
+                <td colSpan={6} className="p-10 text-center">
+                  <Loader2 className="animate-spin inline mr-2" /> Cargando...
+                </td>
+              </tr>
+            ) : clientesFiltrados.length === 0 ? (
+              <tr>
+                {/* CAMBIO: ajustado colspan por las dos columnas nuevas */}
+                <td colSpan={6} className="p-10 text-center">
+                  No hay clientes.
+                </td>
+              </tr>
+            ) : (
+              clientesFiltrados.map((c) => (
+                <tr
+                  key={c.id_cliente}
+                  className="hover:bg-gray-50 group transition-colors"
+                >
+                  <td className="px-6 py-4">
+                    <p className="font-bold text-quality-dark">{c.n_cliente}</p>
+                    <p className="text-xs text-gray-500">
+                      ID: {c.id_cliente} · CIF: {c.cif}
+                    </p>
+                  </td>
+                  <td className="px-6 py-4 text-gray-600">
+                    {c.persona_contacto || "-"}
+                  </td>
+                  {/* CAMBIO: añadida celda para Email */}
+                  <td className="px-6 py-4 text-gray-600">
+                    {c.email || "-"}
+                  </td>
+                  {/* CAMBIO: añadida celda para Teléfono */}
+                  <td className="px-6 py-4 text-gray-600">
+                    {c.telefono || "-"}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    {c.direccion || "-"}
+                  </td>
+
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                        title="Editar"
+                        onClick={() => abrirModalEditar(c)}
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button
+                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                        onClick={() => handleArchivar(c.id_cliente)}
+                        title="Archivar"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* ------------- MODAL (CREAR / EDITAR) ------------- */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
+            <div className="flex justify-between items-center mb-6 border-b pb-4">
+              <h3 className="text-lg font-bold text-quality-dark flex gap-2 items-center">
+                <Building2 className="text-quality-red" />{" "}
+                {esEdicion ? "Editar Cliente" : "Nuevo Cliente"}
+              </h3>
+              <button onClick={cerrarModal}>
+                <X className="text-gray-400 hover:text-black" />
+              </button>
+            </div>
+
+            {erroresModal.general && (
+              <div className="bg-red-50 text-red-800 p-3 rounded mb-4 flex gap-2">
+                <AlertCircle size={18} /> {erroresModal.general}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="text-sm font-medium block mb-1">
+                    Sociedad
+                  </label>
+                  <input
+                    className={`w-full border rounded-lg px-3 py-2 ${
+                      esEdicion
+                        ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                        : ""
+                    }`}
+                    value={idSociedad}
+                    onChange={(e) => setIdSociedad(e.target.value)}
+                    disabled={esEdicion}
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-sm font-medium block mb-1">
+                    ID Cliente
+                  </label>
+                  <input
+                    className={`w-full border rounded-lg px-3 py-2 ${
+                      esEdicion
+                        ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                        : ""
+                    }`}
+                    placeholder="ATOS, CYC..."
+                    value={idCliente}
+                    onChange={(e) => setIdCliente(e.target.value)}
+                    disabled={esEdicion}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="col-span-2">
+                  <label className="text-sm font-medium block mb-1">
+                    Empresa
+                  </label>
+                  <input
+                    className="w-full border rounded-lg px-3 py-2"
+                    placeholder="Tech S.L."
+                    value={nombre}
+                    onChange={(e) => setNombre(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium block mb-1">
+                    CIF/NIF
+                  </label>
+                  <input
+                    className="w-full border rounded-lg px-3 py-2"
+                    placeholder="B123..."
+                    value={cif}
+                    onChange={(e) => setCif(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium block mb-1">
+                  Contacto
+                </label>
+                <input
+                  className="w-full border rounded-lg px-3 py-2"
+                  placeholder="Nombre persona"
+                  value={contacto}
+                  onChange={(e) => setContacto(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium block mb-1">
+                  Email
+                </label>
+                <input
+                  className="w-full border rounded-lg px-3 py-2"
+                  placeholder="contacto@empresa.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium block mb-1">
+                  Teléfono
+                </label>
+                <input
+                  className="w-full border rounded-lg px-3 py-2"
+                  placeholder="+34 912 345 678"
+                  value={telefono}
+                  onChange={(e) => setTelefono(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium block mb-1">
+                  Dirección
+                </label>
+                <input
+                  className="w-full border rounded-lg px-3 py-2"
+                  placeholder="Calle..."
+                  value={direccion}
+                  onChange={(e) => setDireccion(e.target.value)}
+                />
+              </div>
+            
+            <div>
+              <label className="text-sm font-medium block mb-1">
+                Banco
+              </label>
+              <p>Total bancos: {bancos.length}</p>
+              <select
+                className="w-full border rounded-lg px-3 py-2"
+                value={idBancoCobro}
+                onChange={(e) => setIdBancoCobro(e.target.value)}
+              >
+                <option value="">-- Sin banco --</option>
+                {bancos.map((b, i) => (
+                  <option key={i} value={b.id_banco_cobro}>
+                    {b.n_banco_cobro}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+              <button
+                onClick={cerrarModal}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleGuardar}
+                disabled={isSaving}
+                className="px-4 py-2 bg-quality-dark text-white rounded-lg flex items-center gap-2 disabled:opacity-50"
+              >
+                {isSaving && <Loader2 className="animate-spin" size={16} />}
+                {esEdicion ? "Guardar cambios" : "Guardar"}
+              </button>
+            </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

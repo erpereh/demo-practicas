@@ -50,7 +50,8 @@ def crear_cliente(payload: ClienteCreate, db: Session = Depends(get_db)):
         persona_contacto=payload.persona_contacto,
         direccion=payload.direccion,
         email=payload.email,          # ← añadido
-        telefono=payload.telefono     # ← añadido
+        telefono=payload.telefono,    # ← añadido
+        id_banco_cobro=payload.id_banco_cobro,
     )
 
     db.add(nuevo)
@@ -95,6 +96,8 @@ def editar_cliente(id_cliente: str, payload: ClienteUpdate, db: Session = Depend
         cliente.email = payload.email
     if payload.telefono is not None:       # ← añadido
         cliente.telefono = payload.telefono
+    if payload.id_banco_cobro is not None:
+        cliente.id_banco_cobro = payload.id_banco_cobro
 
     db.commit()
     db.refresh(cliente)

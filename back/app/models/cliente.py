@@ -81,6 +81,12 @@ class Cliente(Base):
         nullable=True
     )
 
+    id_banco = Column(
+        "ID_BANCO_COBRO",
+        String(10),
+        nullable=True
+    )
+
     # Índice compuesto para búsquedas eficientes por sociedad y CIF
     __table_args__ = (
         Index("ix_clientes_sociedad_cif", "ID_SOCIEDAD", "CIF"),
