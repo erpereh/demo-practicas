@@ -27,6 +27,7 @@ interface TarifaDB {
     proyecto: string;
     tarifa: number;
     fecha_inicio: string;
+    fecha_fin?: string | null;
 }
 
 // Tipado mínimo del empleado para mostrar nombre y apellidos en UI (selector y tabla)
@@ -87,6 +88,7 @@ export default function HistorialProyectos() {
     const [projSeleccionado, setProjSeleccionado] = useState("");
     const [precio, setPrecio] = useState("");
     const [fechaInicio, setFechaInicio] = useState(""); // nueva fecha de inicio
+    const [fechaFin, setFechaFin] = useState("");
 
     // errores: mensajes de validación por campo y error general del servidor
     const [errores, setErrores] = useState<{
@@ -230,6 +232,7 @@ export default function HistorialProyectos() {
                     id_cliente: "CYC",
                     id_proyecto: projSeleccionado,
                     fec_inicio: modoEdicion ? tarifaEditando?.fecha_inicio : fechaInicio,
+                    fec_fin: fechaFin || null,
                     tarifa: precioNum
                 })
             });
@@ -362,6 +365,7 @@ export default function HistorialProyectos() {
                             <th className="px-6 py-4">Empleado</th>
                             <th className="px-6 py-4">Proyecto Asignado</th>
                             <th className="px-6 py-4">Fecha Inicio</th>
+                            <th className="px-6 py-4">Fecha Fin</th>
                             <th className="px-6 py-4">Tarifa (€/Hora)</th>
                             <th className="px-6 py-4 text-right">Acciones</th>
                         </tr>
@@ -400,6 +404,10 @@ export default function HistorialProyectos() {
                                         {/* Fecha de inicio de la tarifa */}
                                         <td className="px-6 py-4 text-gray-500 font-mono">
                                             {t.fecha_inicio}
+                                        </td>
+
+                                        <td className="px-6 py-4 text-gray-500 font-mono">
+                                            {t.fecha_fin || "En curso"}
                                         </td>
 
                                         <td className="px-6 py-4 font-mono">{t.tarifa.toFixed(2)} €</td>
@@ -454,6 +462,20 @@ export default function HistorialProyectos() {
                                     }`}
                                     disabled={modoEdicion} // opcional: si quieres bloquear en edición
                                 />
+
+                             {/* Fecha Fin */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Fecha de Fin
+                            </label>
+                            <input
+                                type="date"
+                                value={fechaFin}
+                                onChange={(e) => setFechaFin(e.target.value)}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                            />
+                        </div>
+
                             </div>
                             {/* Error general del modal (servidor/validación general) */}
                             {errores.general && (

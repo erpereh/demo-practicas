@@ -202,74 +202,69 @@ export default function ProyectosPage() {
     // - Si OK: cierra modal y recarga listado con el filtro actual
     // - Si KO: muestra error del backend en apiError
     const handleSave = async () => {
-        setSaving(true);
-        setApiError(null);
-        try {
-            let res: Response;
-            if (editingProyecto) {
-                // ------------- UPDATE (PUT) -------------
-                // Construye body parcial para no tocar campos que no se están editando.
-                const body: Record<string, any> = {};
+    setSaving(true);
+    setApiError(null);
 
-                if (form.nombre_proyecto) body.nombre_proyecto = form.nombre_proyecto;
-                if (form.codigo_proyecto_tracker) body.codigo_proyecto_tracker = form.codigo_proyecto_tracker;
-                if (form.tipo_pago) body.tipo_pago = form.tipo_pago.toUpperCase(); 
-                if (form.precio !== "") body.precio = parseFloat(form.precio);
+    try {
+        let res: Response;
 
-                // 👇 IMPORTANTE
-                body.fec_inicio = form.fec_inicio || null;
-                body.fec_fin = form.fec_fin || null;             // 👈 AÑADIDO
+        if (editingProyecto) {
+            const body: Record<string, any> = {};
 
-                console.log("BODY UPDATE:", body);
+            if (form.nombre_proyecto) body.nombre_proyecto = form.nombre_proyecto;
+            if (form.codigo_proyecto_tracker) body.codigo_proyecto_tracker = form.codigo_proyecto_tracker;
+            if (form.tipo_pago) body.tipo_pago = form.tipo_pago.toUpperCase();
+            if (form.precio !== "") body.precio = parseFloat(form.precio);
 
-                res = await fetch(`${API_BASE}/${editingProyecto.id_proyecto}`, {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(body),
-                });
-            } else {
-                // ------------- CREATE (POST) -------------
-                // id_cliente viene del <select> (value=ID) y se envía al backend como FK.
-               const body: Record<string, any> = {
-                    id_proyecto: form.id_proyecto,
-                    id_sociedad: form.id_sociedad,
-                    id_cliente: form.id_cliente,
-                    nombre_proyecto: form.nombre_proyecto,
-                    codigo_proyecto_tracker: form.codigo_proyecto_tracker,
-                    tipo_pago: form.tipo_pago.toUpperCase(),
+            body.fec_inicio = form.fec_inicio || null;
+            body.fec_fin = form.fec_fin || null;
 
-                    // 👇 IMPORTANTE
-                    fec_inicio: form.fec_inicio || null,
-                    fec_fin: form.fec_fin || null,
-                };
+            res = await fetch(`${API_BASE}/${editingProyecto.id_proyecto}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+            });
 
-                if (form.precio !== "") body.precio = parseFloat(form.precio);
+        } else {
+            const body: Record<string, any> = {
+                id_proyecto: form.id_proyecto,
+                id_sociedad: form.id_sociedad,
+                id_cliente: form.id_cliente,
+                nombre_proyecto: form.nombre_proyecto,
+                codigo_proyecto_tracker: form.codigo_proyecto_tracker,
+                tipo_pago: form.tipo_pago.toUpperCase(),
+                fec_inicio: form.fec_inicio || null,
+                fec_fin: form.fec_fin || null,
+            };
 
-                console.log("BODY CREATE:", body);
+            if (form.precio !== "") body.precio = parseFloat(form.precio);
 
-                res = await fetch(`${API_BASE}/`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(body),
-                });
-            }
+            res = await fetch(`${API_BASE}/`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+            });
+        }
 
-            // Si el backend devuelve error, intenta leer detail y lo muestra
-            if (!res.ok) {
-                const err = await res.json();
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(
+                typeof err.detail === "string"
+                    ? err.detail
+                    : JSON.stringify(err.detail)
+            );
+        }
 
-                // 👇 DEBUG: ver error real del backend
-                console.log("ERROR BACKEND:", err);
+        // 👇 CLAVE: refrescar y cerrar
+        setIsModalOpen(false);
+        fetchProyectos(searchTerm || undefined);
 
-                throw new Error(
-                    typeof err.detail === "string"
-                        ? err.detail
-                        : JSON.stringify(err.detail)
-                );
-            }
-        } catch {}
+    } catch (e: any) {
+        setApiError(e.message || "Error al guardar");
+    } finally {
+        setSaving(false);
     }
-
+};
 
     // ── ELIMINAR ───────────────────────────────────────────────────────────────
     // Borra un proyecto definitivamente:
