@@ -343,7 +343,7 @@ async function saveEdit() {
                   <td className="px-6 py-4">{r.desc_tarea || "-"}</td>
                   <td className="px-6 py-4">
                     {!r.facturada && (
-                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition">
+                    <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => openEdit(r)}
                         className="p-2 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
