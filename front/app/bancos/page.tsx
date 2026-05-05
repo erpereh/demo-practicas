@@ -12,6 +12,8 @@ import {
   Loader2,
   AlertCircle,
   Edit,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 // ------------- TIPO DE DATOS (DTO) -------------
@@ -80,6 +82,9 @@ export default function BancosPage() {
   // ------------- ESTADO ERRORES -------------
   // errores.general se muestra tanto en la página como dentro del modal
   const [errores, setErrores] = useState<{ general?: string }>({});
+
+  // Controla la visibilidad de IBAN y número de cuenta (ocultos por defecto por seguridad)
+  const [mostrarCuentas, setMostrarCuentas] = useState(false);
 
   // ======================
   // ------------- HELPERS DE FORMULARIO -------------
@@ -319,6 +324,15 @@ export default function BancosPage() {
           <p className="text-gray-500 mt-1">Gestión de cuentas de cobro e IBAN.</p>
         </div>
 
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setMostrarCuentas(!mostrarCuentas)}
+          className="p-2 rounded-lg border hover:bg-gray-100"
+          title="Mostrar/Ocultar cuentas"
+        >
+          {mostrarCuentas ? <EyeOff size={18} /> : <Eye size={18} />}
+        </button>
+
         <button
           onClick={openCreate}
           className="bg-quality-red hover:bg-[#C20017] text-white px-5 py-2.5 rounded-lg font-medium transition-all shadow-md flex items-center gap-2"
@@ -326,6 +340,7 @@ export default function BancosPage() {
           <Plus size={18} /> Añadir Cuenta
         </button>
       </div>
+    </div>
 
       {/* ERROR GENERAL */}
       {errores.general && (
@@ -396,10 +411,18 @@ export default function BancosPage() {
                   </td>
 
                   <td className="px-6 py-4 font-mono text-sm text-gray-700">
-                    {b.codigo_iban || "-"}
+                    {mostrarCuentas
+                       ? b.codigo_iban || "-"
+                       : b.codigo_iban
+                         ? "**** **** **** " + b.codigo_iban.slice(-4)
+                         : "-"}
                   </td>
                   <td className="px-6 py-4 font-mono text-sm text-gray-700">
-                    {b.num_cuenta || "-"}
+                     {mostrarCuentas
+                        ? b.num_cuenta || "-"
+                        : b.num_cuenta
+                          ? "****" + b.num_cuenta.slice(-4)
+                          : "-"}
                   </td>
                   <td className="px-6 py-4 text-gray-600">{b.id_sociedad}</td>
                   <td className="px-6 py-4 font-mono text-sm text-gray-700">
@@ -562,5 +585,5 @@ export default function BancosPage() {
         </div>
       )}
     </div>
-  );
-}
+      );
+    }
