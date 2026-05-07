@@ -205,6 +205,25 @@ export default function ProyectosPage() {
     setSaving(true);
     setApiError(null);
 
+    if (!form.id_proyecto.trim()) {
+        setApiError("El ID del proyecto es obligatorio");
+        setSaving(false);
+        return;
+    }
+
+    if (!form.nombre_proyecto.trim()) {
+        setApiError("El nombre del proyecto es obligatorio");
+        setSaving(false);
+        return;
+    }
+
+    // 👇 VALIDACIÓN NUEVA
+    if (!form.fec_inicio) {
+        setApiError("La fecha de inicio es obligatoria");
+        setSaving(false);
+        return;
+    }
+
     try {
         let res: Response;
 
