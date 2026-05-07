@@ -133,9 +133,22 @@ export default function ProyectosPage() {
         try {
             const res = await fetch(`${API_CLIENTES_BASE}/`);
             if (!res.ok) return;
-            setClientes(await res.json());
-        } catch { /* no crítico */ }
-    }, []);
+
+            const data = await res.json();
+
+            const clientesOrdenados = data.sort(
+                (a: Cliente, b: Cliente) =>
+                    a.n_cliente.localeCompare(b.n_cliente, "es", {
+                        sensitivity: "base",
+                    })
+            );
+
+            setClientes(clientesOrdenados);
+
+    } catch {
+        /* no crítico */
+    }
+}, []);
 
     // ------------- EFECTO INICIAL -------------
     // Carga proyectos y clientes al entrar en la página.
