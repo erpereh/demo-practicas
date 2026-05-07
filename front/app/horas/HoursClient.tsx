@@ -28,6 +28,18 @@ export default function HoursClient() {
   const [proyectos, setProyectos] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
+    // Empleados ordenados alfabéticamente
+  const empleadosOrdenados = [...empleados].sort((a, b) =>
+    `${a.nombre} ${a.apellidos}`.localeCompare(
+      `${b.nombre} ${b.apellidos}`
+    )
+  );
+
+  // Proyectos ordenados alfabéticamente
+  const proyectosOrdenados = [...proyectos].sort((a, b) =>
+    a.id_proyecto.localeCompare(b.id_proyecto)
+  );
+
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selected, setSelected] = useState<TimeEntry | null>(null);
@@ -267,7 +279,7 @@ export default function HoursClient() {
     className="px-3 py-2 border border-gray-200 rounded-lg bg-white text-gray-700"
   >
     <option value="">Todos los empleados</option>
-    {empleados.map((e) => (
+    {empleadosOrdenados.map((e) => (
       <option key={e.id_empleado} value={e.id_empleado}>
         {e.nombre} {e.apellidos}
       </option>
@@ -280,7 +292,7 @@ export default function HoursClient() {
     className="px-3 py-2 border border-gray-200 rounded-lg bg-white text-gray-700"
   >
     <option value="">Todos los proyectos</option>
-    {proyectos.map((p) => (
+    {proyectosOrdenados.map((p) => (
       <option key={p.id_proyecto} value={p.id_proyecto}>
         {p.id_proyecto}
       </option>
@@ -386,7 +398,7 @@ export default function HoursClient() {
                   onChange={(e) => setMEmpleado(e.target.value)}
                 >
                   <option value="">Selecciona empleado...</option>
-                  {empleados.map((e) => (
+                  {empleadosOrdenados.map((e) => (
                     <option key={e.id_empleado} value={e.id_empleado}>
                       {e.nombre} {e.apellidos}
                     </option>
@@ -399,7 +411,7 @@ export default function HoursClient() {
                   onChange={(e) => setMProyecto(e.target.value)}
                 >
                   <option value="">Selecciona proyecto...</option>
-                  {proyectos.map((p) => (
+                  {proyectosOrdenados.map((p) => (
                     <option key={p.id_proyecto} value={p.id_proyecto}>
                       {p.id_proyecto}
                     </option>
