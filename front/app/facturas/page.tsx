@@ -55,6 +55,11 @@ export default function FacturacionPage() {
 
   const [clientes, setClientes] = useState<Cliente[]>([])
 
+    // Clientes ordenados alfabéticamente
+  const clientesOrdenados = [...clientes].sort((a, b) =>
+    a.n_cliente.localeCompare(b.n_cliente)
+  );
+
   const [previewData, setPreviewData] = useState<PreviewFactura | null>(null);
   const [generadaData, setGeneradaData] = useState<Factura | null>(null);
 
@@ -256,7 +261,7 @@ export default function FacturacionPage() {
           >
             <option value="">Seleccionar Cliente</option>
 
-            {clientes.map((c) => (
+            {clientesOrdenados.map((c) => (
               <option key={c.id_cliente} value={String(c.id_cliente)}>
                 {c.n_cliente}
               </option>
