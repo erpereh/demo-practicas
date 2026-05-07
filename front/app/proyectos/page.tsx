@@ -224,6 +224,12 @@ export default function ProyectosPage() {
         return;
     }
 
+    if (!form.id_sociedad.trim()) {
+    setApiError("La sociedad es obligatoria");
+    setSaving(false);
+    return;
+    }
+
     if (!form.nombre_proyecto.trim()) {
         setApiError("El nombre del proyecto es obligatorio");
         setSaving(false);
@@ -280,11 +286,37 @@ export default function ProyectosPage() {
 
         if (!res.ok) {
             const err = await res.json();
-            throw new Error(
-                typeof err.detail === "string"
-                    ? err.detail
-                    : JSON.stringify(err.detail)
-            );
+
+            // Si FastAPI devuelve errores de validación
+            if (Array.isArray(err.detail)) {
+                const mensajes = err.detail.map((d: any) => {
+                    const campo = d.loc?.[1];
+
+                    switch (campo) {
+                        case "id_cliente":
+                            return "Debes seleccionar un cliente.";
+
+                        case "nombre_proyecto":
+                            return "El nombre del proyecto es obligatorio.";
+
+                        case "id_proyecto":
+                            return "El ID del proyecto es obligatorio.";
+
+                        case "codigo_proyecto_tracker":
+                            return "El código tracker es obligatorio.";
+
+                        case "fec_inicio":
+                            return "La fecha de inicio es obligatoria.";
+
+                        default:
+                            return "Hay campos obligatorios sin completar.";
+                    }
+                });
+
+                throw new Error(mensajes.join(" | "));
+            }
+
+            throw new Error(err.detail || "Error al guardar");
         }
 
         // 👇 CLAVE: refrescar y cerrar
