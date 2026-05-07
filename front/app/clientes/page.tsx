@@ -655,12 +655,18 @@ const cargarBancos = async () => {
               >
                 <option value="">-- Sin banco --</option>
 
-                {bancos.map((b, i) => (
-                  <option key={i} value={b.id_banco_cobro}>
-                    {mostrarCuentas
-                      ? `${b.n_banco_cobro} - ${b.codigo_iban || "Sin IBAN"}`
-                      : `${b.n_banco_cobro} - ****${b.codigo_iban?.slice(-4) || ""}`}
-                  </option>
+                {[...bancos]
+                  .sort((a, b) =>
+                    a.n_banco_cobro.localeCompare(b.n_banco_cobro, "es", {
+                      sensitivity: "base",
+                    })
+                  )
+                  .map((b, i) => (
+                    <option key={i} value={b.id_banco_cobro}>
+                      {mostrarCuentas
+                        ? `${b.n_banco_cobro} - ${b.codigo_iban || "Sin IBAN"}`
+                        : `${b.n_banco_cobro} - ****${b.codigo_iban?.slice(-4) || ""}`}
+                    </option>
                 ))}
               </select>
             </div>
