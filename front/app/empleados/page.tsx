@@ -136,8 +136,15 @@ export default function EmpleadosPage() {
 
   // ------------- FILTRADO EN FRONT -------------
   // Filtra empleados por nombre completo o por ID (DNI/NIE)
-  const empleadosFiltrados = empleados.filter((e) => {
+  const empleadosFiltrados = [...empleados]
+  .sort((a, b) =>
+    `${a.nombre} ${a.apellidos}`.localeCompare(
+      `${b.nombre} ${b.apellidos}`
+    )
+  )
+  .filter((e) => {
     const full = `${e.nombre} ${e.apellidos}`.toLowerCase();
+
     return (
       full.includes(searchTerm.toLowerCase()) ||
       e.id_empleado.toLowerCase().includes(searchTerm.toLowerCase())

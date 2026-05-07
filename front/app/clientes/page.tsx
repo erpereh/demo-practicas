@@ -145,10 +145,16 @@ const cargarBancos = async () => {
 }, []);
   // ------------- FILTRADO EN FRONT -------------
   // Filtra por nombre (n_cliente) o cif usando el searchTerm
-  const clientesFiltrados = clientes.filter(
+  const clientesFiltrados = clientes
+  .filter(
     (cli) =>
       cli.n_cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
       cli.cif.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+  .sort((a, b) =>
+    a.n_cliente.localeCompare(b.n_cliente, "es", {
+      sensitivity: "base",
+    })
   );
 
   // ======================
