@@ -12,6 +12,8 @@ import {
   Loader2,
   AlertCircle,
   Edit,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 // ------------- TIPO DE DATOS (DTO) -------------
@@ -78,6 +80,7 @@ export default function ClientesPage() {
   const [email, setEmail] = useState("");         // CAMBIO: añadido campo email
   const [telefono, setTelefono] = useState("");   // CAMBIO: añadido campo teléfono
   const [idBancoCobro, setIdBancoCobro] = useState<string>("");
+  const [mostrarCuentas, setMostrarCuentas] = useState(false);  // Controla si se muestran los datos bancarios completos en el combobox
 
   // ------------- ESTADO ERRORES -------------
   // erroresGlobal: errores de carga/listado (se muestran fuera del modal)
@@ -626,19 +629,37 @@ const cargarBancos = async () => {
               </div>
             
             <div>
-              <label className="text-sm font-medium block mb-1">
-                Banco
-              </label>
-              <p>Total bancos: {bancos.length}</p>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-sm font-medium">
+                  Banco
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => setMostrarCuentas(!mostrarCuentas)}
+                  className="p-1 rounded hover:bg-gray-100"
+                  title="Mostrar/Ocultar cuentas"
+                >
+                  {mostrarCuentas ? (
+                    <EyeOff size={16} />
+                  ) : (
+                    <Eye size={16} />
+                  )}
+                </button>
+              </div>
+
               <select
                 className="w-full border rounded-lg px-3 py-2"
                 value={idBancoCobro}
                 onChange={(e) => setIdBancoCobro(e.target.value)}
               >
                 <option value="">-- Sin banco --</option>
+
                 {bancos.map((b, i) => (
                   <option key={i} value={b.id_banco_cobro}>
-                    {b.n_banco_cobro}
+                    {mostrarCuentas
+                      ? `${b.n_banco_cobro} - ${b.codigo_iban || "Sin IBAN"}`
+                      : `${b.n_banco_cobro} - ****${b.codigo_iban?.slice(-4) || ""}`}
                   </option>
                 ))}
               </select>
