@@ -495,8 +495,16 @@ export default function HistorialProyectos() {
                                     disabled={modoEdicion} // no se puede cambiar en edición
                                 >
                                     <option value="">Selecciona un empleado...</option>
-                                    {empleados.map(e => (
-                                        <option key={e.id_empleado} value={e.id_empleado}>{`${e.nombre} ${e.apellidos}`}</option>
+                                    {[...empleados]
+                                        .sort((a, b) =>
+                                            `${a.nombre} ${a.apellidos}`.localeCompare(
+                                                `${b.nombre} ${b.apellidos}`
+                                            )
+                                        )
+                                        .map(e => (
+                                            <option key={e.id_empleado} value={e.id_empleado}>
+                                                {`${e.nombre} ${e.apellidos}`}
+                                            </option>
                                     ))}
                                 </select>
                                 {errores.empleado && <p className="text-quality-red text-xs mt-1.5 font-medium">{errores.empleado}</p>}
@@ -512,8 +520,14 @@ export default function HistorialProyectos() {
                                     disabled={modoEdicion} // no se puede cambiar en edición
                                 >
                                     <option value="">Selecciona un proyecto...</option>
-                                    {proyectos.map(p => (
-                                        <option key={p.id_proyecto} value={p.id_proyecto}>{p.nombre_proyecto}</option>
+                                    {[...proyectos]
+                                        .sort((a, b) =>
+                                            a.nombre_proyecto.localeCompare(b.nombre_proyecto)
+                                        )
+                                        .map(p => (
+                                            <option key={p.id_proyecto} value={p.id_proyecto}>
+                                                {p.nombre_proyecto}
+                                            </option>
                                     ))}
                                 </select>
                                 {errores.proyecto && <p className="text-quality-red text-xs mt-1.5 font-medium">{errores.proyecto}</p>}
