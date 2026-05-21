@@ -51,7 +51,7 @@ def crear_cliente(payload: ClienteCreate, db: Session = Depends(get_db)):
         direccion=payload.direccion,
         email=payload.email,          # ← añadido
         telefono=payload.telefono,    # ← añadido
-        id_banco_cobro=payload.id_banco_cobro,
+        id_banco_cobro=payload.id_banco_cobro
     )
 
     db.add(nuevo)

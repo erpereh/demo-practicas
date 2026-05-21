@@ -81,7 +81,7 @@ class Cliente(Base):
         nullable=True
     )
 
-    id_banco = Column(
+    id_banco_cobro = Column(
         "ID_BANCO_COBRO",
         String(10),
         nullable=True
