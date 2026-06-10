@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Download, Search, Filter, Eye, FileDown } from "lucide-react";
+import { apiUrl } from "@/lib/api";
 
 // Tipo de datos de facturas
 interface Factura {
@@ -15,8 +16,6 @@ interface Factura {
 }
 
 export default function HistorialFacturasPage() {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-
   // ======================
   // Estados
   // ======================
@@ -46,7 +45,7 @@ export default function HistorialFacturasPage() {
     try {
       setIsLoading(true);
       setErrores({});
-      const res = await fetch(`${API_URL}/api/facturas`);
+      const res = await fetch(apiUrl("/api/facturas"));
       if (!res.ok) {
         setErrores({ general: "Error cargando facturas" });
         return;
@@ -123,7 +122,7 @@ export default function HistorialFacturasPage() {
         numFactura = "QS" + numFactura;
       }
 
-      const res = await fetch(`${API_URL}/api/factura/pdf/${numFactura}`);
+      const res = await fetch(apiUrl(`/api/factura/pdf/${numFactura}`));
 
       if (!res.ok) {
         alert("Error descargando PDF");

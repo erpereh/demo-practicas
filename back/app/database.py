@@ -1,36 +1,61 @@
 import os
 import urllib.parse
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
-from dotenv import load_dotenv
 
-# Carga las variables del archivo .env
+from dotenv import load_dotenv
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import declarative_base, sessionmaker
+
+
 load_dotenv()
 
-# Leer variables
-raw_password = os.getenv("DB_PASSWORD")
+REQUIRED_DB_ENV_VARS = ("DB_USER", "DB_PASSWORD", "DB_HOST", "DB_PORT", "DB_NAME")
 
-# --- COMPROBACIÓN DE SEGURIDAD ---
-if raw_password is None:
-    raise ValueError("ERROR CRÍTICO: No se ha encontrado DB_PASSWORD. Python no está leyendo el archivo .env. Comprueba que está en la raíz de la carpeta 'back'.")
-# ---------------------------------
 
-password = urllib.parse.quote_plus(raw_password)
-user = os.getenv("DB_USER")
-host = os.getenv("DB_HOST")
-port = os.getenv("DB_PORT")
-database = os.getenv("DB_NAME")
+def _require_db_env() -> dict[str, str]:
+    values: dict[str, str] = {}
+    missing: list[str] = []
+
+    for key in REQUIRED_DB_ENV_VARS:
+        value = os.getenv(key)
+        if value is None or value.strip() == "":
+            missing.append(key)
+        else:
+            values[key] = value
+
+    if missing:
+        raise RuntimeError(
+            "Faltan variables de entorno de base de datos: "
+            f"{', '.join(missing)}. Revisa el archivo .env de la carpeta back."
+        )
+
+    return values
+
+
+db_env = _require_db_env()
+
+user = urllib.parse.quote_plus(db_env["DB_USER"])
+password = urllib.parse.quote_plus(db_env["DB_PASSWORD"])
+host = db_env["DB_HOST"]
+port = db_env["DB_PORT"]
+database = db_env["DB_NAME"]
 
 SQLALCHEMY_DATABASE_URL = f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}"
 
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    pool_pre_ping=True,
+    connect_args={"connect_timeout": 5},
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# ==========================================
-# FUNCIÓN GET_DB 
-# Crea una sesión de BBDD por cada petición a la API y la cierra al terminar
-# ==========================================
+
+def check_db_connection() -> bool:
+    with engine.connect() as connection:
+        connection.execute(text("SELECT 1"))
+    return True
+
+
 def get_db():
     db = SessionLocal()
     try:

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { apiUrl } from "@/lib/api";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -12,7 +13,7 @@ export default function LoginPage() {
     e.preventDefault();
 
     const response = await fetch(
-      "http://localhost:30000/login",
+      apiUrl("/login"),
       {
         method: "POST",
         headers: {

@@ -19,12 +19,11 @@ import {
     Loader2,
     AlertCircle
 } from "lucide-react";
+import { apiUrl } from "@/lib/api";
 
 // ------------- ENDPOINTS API -------------
 // Base de proyectos (CRUD) y base de clientes (para rellenar el <select>)
 // Nota: aquí están hardcodeados a localhost. Si usas variable de entorno, lo normal es API_URL.
-const API_BASE = "http://localhost:8000/api/proyectos";
-const API_CLIENTES_BASE = "http://localhost:8000/api/clientes";
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 // Tipado mínimo del cliente para mostrar nombre en tabla y cargar el select.
@@ -45,7 +44,6 @@ interface Proyecto {
     tipo_pago: string;
     precio: number | null;
     fec_inicio: string | null;
-    fec_fin: string | null; // 👈 AÑADIDO (fecha fin desde backend)
     cliente: Cliente | null;
 }
 
@@ -60,7 +58,6 @@ interface ProyectoForm {
     tipo_pago: string;
     precio: string;
     fec_inicio: string;
-    fec_fin: string; // 👈 AÑADIDO (campo en formulario)
 }
 
 // ------------- ESTADO INICIAL DEL FORMULARIO -------------
@@ -74,7 +71,6 @@ const FORM_EMPTY: ProyectoForm = {
     tipo_pago: "abierto",
     precio: "",
     fec_inicio: "",
-    fec_fin: "", // 👈 AÑADIDO
 };
 
 export default function ProyectosPage() {
@@ -116,7 +112,7 @@ export default function ProyectosPage() {
         try {
             const params = new URLSearchParams();
             if (q) params.set("q", q);
-            const res = await fetch(`${API_BASE}/?${params.toString()}`);
+            const res = await fetch(apiUrl(`/api/proyectos/?${params.toString()}`));
             if (!res.ok) throw new Error(`Error ${res.status}`);
             setProyectos(await res.json());
         } catch (e: any) {
@@ -131,7 +127,7 @@ export default function ProyectosPage() {
     // Si falla, no es crítico: el modal tiene un fallback input para escribir el ID.
     const fetchClientes = useCallback(async () => {
         try {
-            const res = await fetch(`${API_CLIENTES_BASE}/`);
+            const res = await fetch(apiUrl("/api/clientes/"));
             if (!res.ok) return;
 
             const data = await res.json();
@@ -183,7 +179,6 @@ export default function ProyectosPage() {
     // - guarda el proyecto seleccionado
     // - precarga el formulario con los datos actuales
     // - convierte precio number -> string
-   // - mantiene fec_inicio y fec_fin en formato compatible con <input type="date">
     const openEdit = (proyecto: Proyecto) => {
         setEditingProyecto(proyecto);
         setForm({
@@ -198,9 +193,6 @@ export default function ProyectosPage() {
                 ? proyecto.fec_inicio.slice(0, 10)
                 : "",
 
-            fec_fin: proyecto.fec_fin
-                ? proyecto.fec_fin.slice(0, 10)
-                : "",
         });
         setApiError(null);
         setIsModalOpen(true);
@@ -255,9 +247,8 @@ export default function ProyectosPage() {
             if (form.precio !== "") body.precio = parseFloat(form.precio);
 
             body.fec_inicio = form.fec_inicio || null;
-            body.fec_fin = form.fec_fin || null;
 
-            res = await fetch(`${API_BASE}/${editingProyecto.id_proyecto}`, {
+            res = await fetch(apiUrl(`/api/proyectos/${editingProyecto.id_proyecto}`), {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(body),
@@ -272,12 +263,11 @@ export default function ProyectosPage() {
                 codigo_proyecto_tracker: form.codigo_proyecto_tracker,
                 tipo_pago: form.tipo_pago.toUpperCase(),
                 fec_inicio: form.fec_inicio || null,
-                fec_fin: form.fec_fin || null,
             };
 
             if (form.precio !== "") body.precio = parseFloat(form.precio);
 
-            res = await fetch(`${API_BASE}/`, {
+            res = await fetch(apiUrl("/api/proyectos/"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(body),
@@ -337,7 +327,7 @@ export default function ProyectosPage() {
     // - si KO: muestra alert con el error del backend
     const handleDelete = async (id_proyecto: string) => {
         try {
-            const res = await fetch(`${API_BASE}/${id_proyecto}`, { method: "DELETE" });
+            const res = await fetch(apiUrl(`/api/proyectos/${id_proyecto}`), { method: "DELETE" });
             if (!res.ok) {
                 const err = await res.json();
                 throw new Error(err.detail || `Error ${res.status}`);
@@ -439,7 +429,6 @@ export default function ProyectosPage() {
                                         <th className="px-6 py-4">Cliente</th>
                                         <th className="px-6 py-4">Tipo de Pago</th>
                                         <th className="px-6 py-4">Cód. Tracker</th>
-                                        <th className="px-6 py-4">Fecha Fin</th>
                                         <th className="px-6 py-4 text-right">Acciones</th>
                                     </tr>
                                 </thead>
@@ -470,9 +459,6 @@ export default function ProyectosPage() {
                                                 </span>
                                             </td>
                                             {/* 👇 FECHA FIN */}
-                                            <td className="px-6 py-4">
-                                                {proyecto.fec_fin || "-"}
-                                            </td>
                                             {/* 👇 ACCIONES */}
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-2">
@@ -639,18 +625,6 @@ export default function ProyectosPage() {
             type="date"
             value={form.fec_inicio}
             onChange={e => updateForm("fec_inicio", e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-quality-red/20 focus:border-quality-red outline-none"
-        />
-    </div>
-
-    <div className={form.tipo_pago === "cerrado" ? "col-span-2" : "col-span-2"}>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-            Fecha Fin
-        </label>
-        <input
-            type="date"
-            value={form.fec_fin}
-            onChange={e => updateForm("fec_fin", e.target.value)}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-quality-red/20 focus:border-quality-red outline-none"
         />
     </div>

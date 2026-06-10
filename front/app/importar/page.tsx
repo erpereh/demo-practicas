@@ -3,6 +3,7 @@
 
 import { useState, useRef } from "react";
 import { FileSpreadsheet, Upload } from "lucide-react";
+import { apiUrl } from "@/lib/api";
 
 export default function ImportarPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -10,8 +11,6 @@ export default function ImportarPage() {
   const [preview, setPreview] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  const API = "http://localhost:5000";
 
   const handlePreview = async () => {
     if (!file) return alert("Selecciona un archivo primero");
@@ -22,7 +21,7 @@ export default function ImportarPage() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API}/preview-horas`, {
+      const res = await fetch(apiUrl("/preview-horas"), {
         method: "POST",
         body: formData,
         credentials: "include",
@@ -39,8 +38,10 @@ export default function ImportarPage() {
 
   const handleConfirm = async () => {
     try {
-    const res = await fetch(`${API}/confirm-horas`, {
+    const res = await fetch(apiUrl("/confirm-horas"), {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ import_token: preview?.import_token }),
       credentials: "include",
     });
 

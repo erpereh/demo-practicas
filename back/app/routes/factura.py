@@ -475,9 +475,9 @@ def generar_pdf(num_factura: str, db: Session = Depends(get_db)):
 
     banco = None
 
-    if cliente and cliente.id_banco:
+    if cliente and cliente.id_banco_cobro:
         banco = db.query(Banco).filter(
-            Banco.id_banco_cobro == cliente.id_banco
+            Banco.id_banco_cobro == cliente.id_banco_cobro
         ).first()
 
     elements.append(Paragraph("<b>Pago mediante transferencia a la cuenta bancaria siguiente:</b>", normal))

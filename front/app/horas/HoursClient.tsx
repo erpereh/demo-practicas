@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Search, Plus, Edit, Trash2, X, Clock } from "lucide-react";
+import { apiUrl } from "@/lib/api";
 
 type TimeEntry = {
   id: string;
@@ -14,7 +15,6 @@ type TimeEntry = {
   facturada: boolean;
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 export default function HoursClient() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -56,9 +56,9 @@ export default function HoursClient() {
 
     try {
       const [resHoras, resEmp, resPro] = await Promise.all([
-        fetch(`${API_URL}/api/horas`),
-        fetch(`${API_URL}/api/empleados`),
-        fetch(`${API_URL}/api/proyectos`)
+        fetch(apiUrl("/api/horas")),
+        fetch(apiUrl("/api/empleados")),
+        fetch(apiUrl("/api/proyectos"))
       ]);
 
       const horasData = await resHoras.json();
@@ -138,7 +138,7 @@ export default function HoursClient() {
 
     try {
       const res = await fetch(
-        `${API_URL}/api/horas/${selected.empleado.id}/${selected.fecha}/${selected.proyecto.id}`,
+        apiUrl(`/api/horas/${selected.empleado.id}/${selected.fecha}/${selected.proyecto.id}`),
         {
           method: "PUT",
           headers: {
@@ -170,7 +170,7 @@ export default function HoursClient() {
 
     try {
       const res = await fetch(
-        `${API_URL}/api/horas/${row.empleado.id}/${row.fecha}/${row.proyecto.id}`,
+        apiUrl(`/api/horas/${row.empleado.id}/${row.fecha}/${row.proyecto.id}`),
         {
           method: "DELETE",
         }
@@ -199,7 +199,7 @@ export default function HoursClient() {
     );
 
     try {
-      const res = await fetch(`${API_URL}/api/horas`, {
+      const res = await fetch(apiUrl("/api/horas"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

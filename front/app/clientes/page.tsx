@@ -15,6 +15,7 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
+import { apiUrl } from "@/lib/api";
 
 // ------------- TIPO DE DATOS (DTO) -------------
 // Tipado del objeto Cliente tal y como lo devuelve el backend (/api/clientes/)
@@ -27,7 +28,7 @@ type ClienteAPI = {
   direccion?: string | null;
   email?: string | null;          // CAMBIO: añadido campo email
   telefono?: string | null;       // CAMBIO: añadido campo teléfono
-  id_banco_cobro?: number | null;
+  id_banco_cobro?: string | null;
 };
 
 // ------------- PARSEO DE ERRORES FASTAPI -------------
@@ -94,10 +95,6 @@ export default function ClientesPage() {
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const esEdicion = editandoId !== null;
 
-  // ------------- CONFIG API -------------
-  // URL base del backend (configurable con NEXT_PUBLIC_API_URL o por defecto localhost:8000)
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
   // ======================
   // ------------- (1) CARGAR CLIENTES -------------
   // ======================
@@ -111,7 +108,7 @@ export default function ClientesPage() {
   try {
     setIsLoading(true);
     setErroresGlobal({});
-    const res = await fetch(`${API_URL}/api/clientes/`);
+    const res = await fetch(apiUrl("/api/clientes/"));
     if (!res.ok) throw new Error(await parseFastApiError(res));
     const data: ClienteAPI[] = await res.json();
     setClientes(data);
@@ -125,7 +122,7 @@ export default function ClientesPage() {
 // 
 const cargarBancos = async () => {
   try {
-    const res = await fetch(`${API_URL}/api/bancos/`);
+    const res = await fetch(apiUrl("/api/bancos/"));
     if (!res.ok) return;
 
     const data = await res.json();
@@ -285,7 +282,7 @@ const cargarBancos = async () => {
         // Construye payload alineado con el schema del backend:
         // normaliza mayúsculas y convierte campos opcionales vacíos a null
         const payloadCreate = {
-          id_banco_cobro: idBancoCobro ? Number(idBancoCobro) : null,
+          id_banco_cobro: idBancoCobro || null,
           id_sociedad: idSociedad.trim().toUpperCase(),
           id_cliente: idCliente.trim().toUpperCase(),
           n_cliente: nombre.trim(),
@@ -297,7 +294,7 @@ const cargarBancos = async () => {
         };
 
         // Llama al backend para crear (POST /api/clientes/)
-        const res = await fetch(`${API_URL}/api/clientes/`, {
+        const res = await fetch(apiUrl("/api/clientes/"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payloadCreate),
@@ -313,7 +310,7 @@ const cargarBancos = async () => {
         // ------------- EDITAR (PUT) -------------
         // Construye payload de actualización: solo campos editables
         const payloadUpdate = {
-          id_banco_cobro: idBancoCobro ? Number(idBancoCobro) : null,
+          id_banco_cobro: idBancoCobro || null,
           n_cliente: nombre.trim(),
           cif: cif.trim().toUpperCase(),
           persona_contacto: contacto.trim() || null,
@@ -324,7 +321,7 @@ const cargarBancos = async () => {
 
         // Llama al backend para editar (PUT /api/clientes/{id})
         const res = await fetch(
-          `${API_URL}/api/clientes/${encodeURIComponent(editandoId)}`,
+          apiUrl(`/api/clientes/${encodeURIComponent(editandoId)}`),
           {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
@@ -366,7 +363,7 @@ const cargarBancos = async () => {
 
     try {
       const res = await fetch(
-        `${API_URL}/api/clientes/${encodeURIComponent(id_cliente)}/archivar`,
+        apiUrl(`/api/clientes/${encodeURIComponent(id_cliente)}/archivar`),
         { method: "PATCH" }
       );
       if (!res.ok) {

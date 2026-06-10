@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { apiUrl } from "@/lib/api";
 
 // Tipos de datos de la API
 interface Factura {
@@ -38,8 +39,6 @@ interface Cliente {
 //------------------------
 
 export default function FacturacionPage() {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-
   const [facturas, setFacturas] = useState<Factura[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -68,7 +67,7 @@ export default function FacturacionPage() {
     try {
       setIsLoading(true);
       setErrores({});
-      const res = await fetch(`${API_URL}/api/facturas`);
+      const res = await fetch(apiUrl("/api/facturas"));
       if (!res.ok) {
         setErrores({ general: "Error cargando facturas" });
         return;
@@ -88,7 +87,7 @@ export default function FacturacionPage() {
 
   useEffect(() => {
     // 🔧 CAMBIO: usar API_URL en lugar de URL hardcodeada
-    fetch(`${API_URL}/api/clientes`)
+    fetch(apiUrl("/api/clientes"))
       .then(res => res.json())
       .then(data => setClientes(data))
       .catch(() => setErrores({ general: "No se pudo cargar la lista de clientes" }));
@@ -105,7 +104,7 @@ export default function FacturacionPage() {
 
     try {
       setIsSaving(true);
-      const res = await fetch(`${API_URL}/api/factura/preview`, {
+      const res = await fetch(apiUrl("/api/factura/preview"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
 
@@ -143,7 +142,7 @@ export default function FacturacionPage() {
 
     try {
       setIsSaving(true);
-      const res = await fetch(`${API_URL}/api/factura/generar`, {
+      const res = await fetch(apiUrl("/api/factura/generar"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
 

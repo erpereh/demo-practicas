@@ -13,24 +13,23 @@ import {
   AlertCircle,
   Edit,
 } from "lucide-react";
+import { apiUrl } from "@/lib/api";
 
 // ------------- TIPO DE DATOS (DTO) -------------
 // Tipado del objeto Empleado tal y como lo devuelve el backend (/api/empleados/).
-// OJO: email y telefono están tipados como opcionales aquí para UI, pero deben existir en backend
-// y en la tabla si quieres que se guarden de verdad (si no, el backend los ignorará o fallará).
+// OJO: email y telefono estÃ¡n tipados como opcionales aquÃ­ para UI, pero deben existir en backend
+// y en la tabla si quieres que se guarden de verdad (si no, el backend los ignorarÃ¡ o fallarÃ¡).
 type EmpleadoAPI = {
   id_empleado: string;
   id_empleado_tracker: string;
   nombre: string;
   apellidos: string;
   matricula?: string | null;
-  email?: string | null;      // añadido campo opcional email
-  telefono?: string | null;   // añadido campo opcional teléfono
 };
 
 // ------------- PARSEO DE ERRORES FASTAPI -------------
 // Convierte la respuesta de error de FastAPI en un mensaje legible:
-// - Si detail es un array (errores de validación por campo), concatena los msg.
+// - Si detail es un array (errores de validaciÃ³n por campo), concatena los msg.
 // - Si detail es texto, lo devuelve.
 // - Si no se puede parsear, devuelve "Error {status}".
 const parseFastApiError = async (res: Response) => {
@@ -47,11 +46,10 @@ const parseFastApiError = async (res: Response) => {
 export default function EmpleadosPage() {
   // ------------- CONFIG API -------------
   // URL base del backend (configurable con NEXT_PUBLIC_API_URL o por defecto 127.0.0.1:8000)
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
-  // ------------- ESTADO UI (BÚSQUEDA Y MODAL) -------------
-  // searchTerm: texto del input de búsqueda
-  // isModalOpen: controla si está abierto el modal de crear/editar
+  // ------------- ESTADO UI (BÃšSQUEDA Y MODAL) -------------
+  // searchTerm: texto del input de bÃºsqueda
+  // isModalOpen: controla si estÃ¡ abierto el modal de crear/editar
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -70,14 +68,12 @@ export default function EmpleadosPage() {
   // - nombre -> NOMBRE
   // - apellidos -> APELLIDOS
   // - matricula -> MATRICULA
-  // email/telefono: añadidos en el front (deben existir en backend si se quieren persistir)
+  // email/telefono: aÃ±adidos en el front (deben existir en backend si se quieren persistir)
   const [idEmpleado, setIdEmpleado] = useState(""); // DNI/NIE
   const [tracker, setTracker] = useState(""); // ID_EMPLEADO_TRACKER
   const [nombre, setNombre] = useState("");
   const [apellidos, setApellidos] = useState("");
   const [matricula, setMatricula] = useState("");
-  const [email, setEmail] = useState("");       // añadido input email
-  const [telefono, setTelefono] = useState(""); // añadido input teléfono
 
   // ------------- ESTADO ERRORES -------------
   // erroresGlobal: errores de listado (se muestran fuera del modal)
@@ -88,13 +84,11 @@ export default function EmpleadosPage() {
     tracker?: string;
     nombre?: string;
     apellidos?: string;
-    email?: string;       // añadido error email
-    telefono?: string;    // añadido error teléfono
     general?: string;
   }>({});
 
-  // ------------- MODO EDICIÓN -------------
-  // editandoId: si tiene valor, el modal está editando ese ID_EMPLEADO
+  // ------------- MODO EDICIÃ“N -------------
+  // editandoId: si tiene valor, el modal estÃ¡ editando ese ID_EMPLEADO
   // esEdicion: booleano derivado para simplificar condiciones
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const esEdicion = editandoId !== null;
@@ -112,7 +106,7 @@ export default function EmpleadosPage() {
     try {
       setIsLoading(true);
       setErroresGlobal({});
-      const res = await fetch(`${API_URL}/api/empleados/`);
+      const res = await fetch(apiUrl("/api/empleados/"));
       if (!res.ok) {
         setErroresGlobal({ general: await parseFastApiError(res) });
         return;
@@ -120,7 +114,7 @@ export default function EmpleadosPage() {
       setEmpleados(await res.json());
     } catch (e) {
       setErroresGlobal({
-        general: "No se pudo conectar con el servidor (¿backend encendido?).",
+        general: "No se pudo conectar con el servidor (Â¿backend encendido?).",
       });
     } finally {
       setIsLoading(false);
@@ -128,7 +122,7 @@ export default function EmpleadosPage() {
   };
 
   // ------------- EFECTO INICIAL -------------
-  // Carga el listado al entrar en la página
+  // Carga el listado al entrar en la pÃ¡gina
   useEffect(() => {
     cargarEmpleados();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -155,8 +149,8 @@ export default function EmpleadosPage() {
   // ------------- (2) MODAL HELPERS -------------
   // ======================
 
-  // Abre el modal en modo creación:
-  // - desactiva edición
+  // Abre el modal en modo creaciÃ³n:
+  // - desactiva ediciÃ³n
   // - limpia errores del modal
   // - resetea formulario
   // - abre modal
@@ -168,12 +162,10 @@ export default function EmpleadosPage() {
     setNombre("");
     setApellidos("");
     setMatricula("");
-    setEmail("");      // inicializado
-    setTelefono("");   // inicializado
     setIsModalOpen(true);
   };
 
-  // Abre el modal en modo edición:
+  // Abre el modal en modo ediciÃ³n:
   // - guarda el ID que se edita
   // - precarga formulario con valores del empleado seleccionado
   // - abre modal
@@ -185,15 +177,13 @@ export default function EmpleadosPage() {
     setNombre(emp.nombre);
     setApellidos(emp.apellidos);
     setMatricula(emp.matricula || "");
-    setEmail(emp.email || "");       // asignado valor existente
-    setTelefono(emp.telefono || ""); // asignado valor existente
     setIsModalOpen(true);
   };
 
   // Cierra el modal:
   // - cierra ventana
   // - limpia errores del modal
-  // - resetea edición
+  // - resetea ediciÃ³n
   // - resetea formulario
   const cerrarModal = () => {
     setIsModalOpen(false);
@@ -204,30 +194,28 @@ export default function EmpleadosPage() {
     setNombre("");
     setApellidos("");
     setMatricula("");
-    setEmail("");      // reiniciado
-    setTelefono("");   // reiniciado
   };
 
   // ======================
   // ------------- (3) GUARDAR (CREAR / EDITAR) -------------
   // ======================
   // - valida campos obligatorios (id, tracker, nombre, apellidos)
-  // - valida formatos (DNI/NIE simple, email, teléfono numérico)
-  // - si creación -> POST /api/empleados/
-  // - si edición -> PUT /api/empleados/{id_empleado}
+  // - valida formatos (DNI/NIE simple, email, telÃ©fono numÃ©rico)
+  // - si creaciÃ³n -> POST /api/empleados/
+  // - si ediciÃ³n -> PUT /api/empleados/{id_empleado}
   // - si OK -> cierra modal y recarga listado
   // - si KO -> muestra error dentro del modal
   const handleGuardarEmpleado = async () => {
     const nuevos: any = {};
 
-    // Validación DNI/NIE (formato básico en front):
-    // - exige 7 u 8 dígitos + letra
-    // (la validación real de letra correcta la hace el backend)
+    // ValidaciÃ³n DNI/NIE (formato bÃ¡sico en front):
+    // - exige 7 u 8 dÃ­gitos + letra
+    // (la validaciÃ³n real de letra correcta la hace el backend)
     const dniRegex = /^[0-9]{7,8}[A-Z]$/i;
     if (!idEmpleado.trim()) {
       nuevos.id_empleado = "El ID (DNI/NIE) es obligatorio.";
     } else if (!dniRegex.test(idEmpleado.trim())) {
-      nuevos.id_empleado = "Formato de DNI/NIE inválido.";
+      nuevos.id_empleado = "Formato de DNI/NIE invÃ¡lido.";
     }
 
     // Tracker obligatorio (enlaza con la app de fichajes)
@@ -236,25 +224,6 @@ export default function EmpleadosPage() {
     // Nombre y apellidos obligatorios
     if (!nombre.trim()) nuevos.nombre = "El nombre es obligatorio.";
     if (!apellidos.trim()) nuevos.apellidos = "Los apellidos son obligatorios.";
-
-    // Validación email (si se informa):
-    // - comprueba patrón usuario@dominio.ext
-    if (email.trim()) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email.trim())) {
-        nuevos.email = "Formato de email inválido.";
-      }
-    }
-
-    // Validación teléfono (si se informa):
-    // - solo permite números
-    if (telefono.trim()) {
-      const telefonoRegex = /^[0-9]+$/;
-      if (!telefonoRegex.test(telefono.trim())) {
-        nuevos.telefono = "El teléfono solo puede contener números.";
-      }
-    }
-
     // Si hay errores, se muestran en el modal y se corta el guardado
     if (Object.keys(nuevos).length) {
       setErroresModal(nuevos);
@@ -268,19 +237,17 @@ export default function EmpleadosPage() {
       if (!esEdicion) {
         // ------------- CREAR (POST) -------------
         // Construye payload para backend:
-        // - opcionales se envían como null si están vacíos
-        // - email/telefono se envían, pero deben existir en backend para persistir
+        // - opcionales se envÃ­an como null si estÃ¡n vacÃ­os
+        // - email/telefono se envÃ­an, pero deben existir en backend para persistir
         const payload = {
           id_empleado: idEmpleado,
           id_empleado_tracker: tracker,
           nombre,
           apellidos,
           matricula: matricula.trim() || null,
-          email: email.trim() || null,       // enviado al backend
-          telefono: telefono.trim() || null, // enviado al backend
         };
 
-        const res = await fetch(`${API_URL}/api/empleados/`, {
+        const res = await fetch(apiUrl("/api/empleados/"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -292,7 +259,7 @@ export default function EmpleadosPage() {
         }
       } else if (editandoId) {
         // ------------- EDITAR (PUT) -------------
-        // En edición:
+        // En ediciÃ³n:
         // - el ID no se cambia (va bloqueado en el input)
         // - se actualizan tracker, nombre, apellidos y opcionales
         const payloadUpdate = {
@@ -300,12 +267,10 @@ export default function EmpleadosPage() {
           nombre,
           apellidos,
           matricula: matricula.trim() || null,
-          email: email.trim() || null,       // enviado al backend
-          telefono: telefono.trim() || null, // enviado al backend
         };
 
         const res = await fetch(
-          `${API_URL}/api/empleados/${encodeURIComponent(editandoId)}`,
+          apiUrl(`/api/empleados/${encodeURIComponent(editandoId)}`),
           {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
@@ -335,14 +300,14 @@ export default function EmpleadosPage() {
   // ------------- (4) ARCHIVAR (BORRAR) -------------
   // ======================
   // Archiva/elimina un empleado:
-  // - pide confirmación
+  // - pide confirmaciÃ³n
   // - PATCH /api/empleados/{id}/archivar
   // - si OK recarga listado
   const handleArchivar = async (id_empleado: string) => {
-    if (!confirm(`¿Archivar (eliminar) el empleado ${id_empleado}?`)) return;
+    if (!confirm(`Â¿Archivar (eliminar) el empleado ${id_empleado}?`)) return;
 
     const res = await fetch(
-      `${API_URL}/api/empleados/${encodeURIComponent(id_empleado)}/archivar`,
+      apiUrl(`/api/empleados/${encodeURIComponent(id_empleado)}/archivar`),
       {
         method: "PATCH",
       }
@@ -359,7 +324,7 @@ export default function EmpleadosPage() {
   // ------------- RENDER -------------
   // ======================
   // UI principal:
-  // - cabecera + botón nuevo
+  // - cabecera + botÃ³n nuevo
   // - error global de listado
   // - buscador
   // - tabla con acciones en hover (editar/archivar)
@@ -373,7 +338,7 @@ export default function EmpleadosPage() {
             Empleados
           </h1>
           <p className="text-gray-500 mt-1">
-            Gestiona la plantilla y los códigos de enlace para fichajes.
+            Gestiona la plantilla y los cÃ³digos de enlace para fichajes.
           </p>
         </div>
 
@@ -398,7 +363,7 @@ export default function EmpleadosPage() {
         </div>
       )}
 
-      {/* BÚSQUEDA */}
+      {/* BÃšSQUEDA */}
       <div className="bg-white p-4 rounded-t-xl border border-gray-200 border-b-0 flex items-center gap-3">
         <div className="relative w-full max-w-md">
           <Search
@@ -422,8 +387,8 @@ export default function EmpleadosPage() {
             <tr className="bg-gray-50/50 border-b border-gray-200 text-xs uppercase tracking-wider text-gray-500 font-semibold">
               <th className="px-6 py-4">Nombre Completo</th>
               <th className="px-6 py-4">ID Empleado (DNI/NIE)</th>
-              <th className="px-6 py-4">Código App Fichaje</th>
-              <th className="px-6 py-4">Matrícula</th>
+              <th className="px-6 py-4">CÃ³digo App Fichaje</th>
+              <th className="px-6 py-4">MatrÃ­cula</th>
               <th className="px-6 py-4 text-right">Acciones</th>
             </tr>
           </thead>
@@ -508,7 +473,7 @@ export default function EmpleadosPage() {
             <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
               <h3 className="text-lg font-bold text-quality-dark flex items-center gap-2">
                 <Users size={20} className="text-quality-red" />{" "}
-                {esEdicion ? "Editar Empleado" : "Añadir Nuevo Empleado"}
+                {esEdicion ? "Editar Empleado" : "AÃ±adir Nuevo Empleado"}
               </h3>
               <button
                 onClick={cerrarModal}
@@ -526,7 +491,7 @@ export default function EmpleadosPage() {
                 </div>
               )}
 
-              {/* Campo ID Empleado (bloqueado en edición) */}
+              {/* Campo ID Empleado (bloqueado en ediciÃ³n) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   ID Empleado (DNI/NIE)
@@ -556,7 +521,7 @@ export default function EmpleadosPage() {
               {/* Tracker */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Código App Fichaje (Tracker)
+                  CÃ³digo App Fichaje (Tracker)
                 </label>
                 <input
                   value={tracker}
@@ -619,10 +584,10 @@ export default function EmpleadosPage() {
                 )}
               </div>
 
-              {/* Matrícula */}
+              {/* MatrÃ­cula */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Matrícula (opcional)
+                  MatrÃ­cula (opcional)
                 </label>
                 <input
                   value={matricula}

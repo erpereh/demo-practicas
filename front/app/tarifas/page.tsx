@@ -13,6 +13,7 @@ import {
     AlertCircle,
     Loader2
 } from "lucide-react";
+import { apiUrl } from "@/lib/api";
 
 /* ============================================================
    ------------- INTERFACES / TIPOS (DTO) -------------
@@ -27,7 +28,6 @@ interface TarifaDB {
     proyecto: string;
     tarifa: number;
     fecha_inicio: string;
-    fecha_fin?: string | null;
 }
 
 // Tipado mínimo del empleado para mostrar nombre y apellidos en UI (selector y tabla)
@@ -88,7 +88,6 @@ export default function HistorialProyectos() {
     const [projSeleccionado, setProjSeleccionado] = useState("");
     const [precio, setPrecio] = useState("");
     const [fechaInicio, setFechaInicio] = useState(""); // nueva fecha de inicio
-    const [fechaFin, setFechaFin] = useState("");
 
     // errores: mensajes de validación por campo y error general del servidor
     const [errores, setErrores] = useState<{
@@ -100,7 +99,6 @@ export default function HistorialProyectos() {
 
     // ------------- CONFIG API -------------
     // URL base del backend (configurable con NEXT_PUBLIC_API_URL o por defecto localhost:8000)
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
     /* ============================================================
        ------------- CARGA DE DATOS -------------
@@ -113,7 +111,7 @@ export default function HistorialProyectos() {
     const cargarTarifas = async () => {
         try {
             setIsLoading(true);
-            const res = await fetch(`${API_URL}/api/tarifas`);
+            const res = await fetch(apiUrl("/api/tarifas"));
             if (res.ok) {
                 const data = await res.json();
                 setTarifas(data);
@@ -131,7 +129,7 @@ export default function HistorialProyectos() {
     // - traducir el id_empleado a nombre y apellidos en la tabla
     const cargarEmpleados = async () => {
         try {
-            const res = await fetch(`${API_URL}/api/empleados`);
+            const res = await fetch(apiUrl("/api/empleados"));
             if (res.ok) setEmpleados(await res.json());
         } catch (error) {
             console.error("Error cargando empleados:", error);
@@ -144,7 +142,7 @@ export default function HistorialProyectos() {
     // - traducir el id_proyecto a nombre_proyecto en la tabla
     const cargarProyectos = async () => {
         try {
-            const res = await fetch(`${API_URL}/api/proyectos`);
+            const res = await fetch(apiUrl("/api/proyectos"));
             if (res.ok) setProyectos(await res.json());
         } catch (error) {
             console.error("Error cargando proyectos:", error);
@@ -223,7 +221,7 @@ export default function HistorialProyectos() {
             // Envía al backend la asignación tarifa:
             // NOTA: aquí hay valores fijos (id_sociedad "01" e id_cliente "CYC")
             // Si más adelante quieres hacerlo dinámico, vendrían del proyecto o del selector.
-            const res = await fetch(`${API_URL}/api/tarifas`, {
+            const res = await fetch(apiUrl("/api/tarifas"), {
                 method,
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -232,7 +230,6 @@ export default function HistorialProyectos() {
                     id_cliente: "CYC",
                     id_proyecto: projSeleccionado,
                     fec_inicio: modoEdicion ? tarifaEditando?.fecha_inicio : fechaInicio,
-                    fec_fin: fechaFin || null,
                     tarifa: precioNum
                 })
             });
@@ -291,7 +288,7 @@ export default function HistorialProyectos() {
                 fec_inicio: tarifa.fecha_inicio
             });
 
-            const res = await fetch(`${API_URL}/api/tarifas?${params}`, { method: "DELETE" });
+            const res = await fetch(apiUrl(`/api/tarifas?${params}`), { method: "DELETE" });
             if (res.ok) cargarTarifas();
         } catch (error) {
             console.error("Error eliminando:", error);
@@ -365,7 +362,6 @@ export default function HistorialProyectos() {
                             <th className="px-6 py-4">Empleado</th>
                             <th className="px-6 py-4">Proyecto Asignado</th>
                             <th className="px-6 py-4">Fecha Inicio</th>
-                            <th className="px-6 py-4">Fecha Fin</th>
                             <th className="px-6 py-4">Tarifa (€/Hora)</th>
                             <th className="px-6 py-4 text-right">Acciones</th>
                         </tr>
@@ -404,10 +400,6 @@ export default function HistorialProyectos() {
                                         {/* Fecha de inicio de la tarifa */}
                                         <td className="px-6 py-4 text-gray-500 font-mono">
                                             {t.fecha_inicio}
-                                        </td>
-
-                                        <td className="px-6 py-4 text-gray-500 font-mono">
-                                            {t.fecha_fin || "En curso"}
                                         </td>
 
                                         <td className="px-6 py-4 font-mono">{t.tarifa.toFixed(2)} €</td>
@@ -462,19 +454,6 @@ export default function HistorialProyectos() {
                                     }`}
                                     disabled={modoEdicion} // opcional: si quieres bloquear en edición
                                 />
-
-                             {/* Fecha Fin */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Fecha de Fin
-                            </label>
-                            <input
-                                type="date"
-                                value={fechaFin}
-                                onChange={(e) => setFechaFin(e.target.value)}
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                            />
-                        </div>
 
                             </div>
                             {/* Error general del modal (servidor/validación general) */}

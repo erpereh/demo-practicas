@@ -114,7 +114,7 @@ class ClienteCreate(BaseModel):
     direccion: str | None = Field(default=None, max_length=1000)
     email: str | None = Field(default=None, max_length=255)
     telefono: str | None = Field(default=None, max_length=50)
-    id_banco_cobro: int | None = None
+    id_banco_cobro: str | None = None
 
     # salida para frontend
     activo: bool = True
@@ -225,7 +225,7 @@ class ClienteUpdate(BaseModel):
     direccion: str | None = Field(default=None, max_length=1000)
     email: str | None = Field(default=None, max_length=255)
     telefono: str | None = Field(default=None, max_length=50)
-    id_banco_cobro: int | None = None
+    id_banco_cobro: str | None = None
 
     if V2:
 
@@ -309,7 +309,7 @@ class ClienteOut(BaseModel):
     direccion: str | None = None
     email: str | None = None
     telefono: str | None = None
-    id_banco_cobro: int | None = None
+    id_banco_cobro: str | None = None
 
 
     activo: bool = True

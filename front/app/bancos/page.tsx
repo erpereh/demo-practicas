@@ -15,6 +15,7 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
+import { apiUrl } from "@/lib/api";
 
 // ------------- TIPO DE DATOS (DTO) -------------
 // Tipado del objeto Banco tal y como lo devuelve el backend (/api/bancos/)
@@ -43,10 +44,6 @@ const parseFastApiError = async (res: Response) => {
 };
 
 export default function BancosPage() {
-  // ------------- CONFIG API -------------
-  // URL base del backend (configurable con NEXT_PUBLIC_API_URL o por defecto 127.0.0.1:8000)
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-
   // ------------- ESTADO UI (BÚSQUEDA Y MODAL) -------------
   // searchTerm: texto del input de búsqueda
   // isModalOpen: controla si está abierto el modal de crear/editar
@@ -152,7 +149,7 @@ export default function BancosPage() {
       setIsLoading(true);
       setErrores({});
 
-      const res = await fetch(`${API_URL}/api/bancos/`);
+      const res = await fetch(apiUrl("/api/bancos/"));
       if (!res.ok) {
         setErrores({ general: await parseFastApiError(res) });
         return;
@@ -231,7 +228,7 @@ export default function BancosPage() {
           codigo_iban: codigoIban.trim() || null,
         };
 
-        const res = await fetch(`${API_URL}/api/bancos/`, {
+        const res = await fetch(apiUrl("/api/bancos/"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -257,7 +254,7 @@ export default function BancosPage() {
       };
 
       const res = await fetch(
-        `${API_URL}/api/bancos/${encodeURIComponent(editing.id_banco_cobro)}`,
+        apiUrl(`/api/bancos/${encodeURIComponent(editing.id_banco_cobro)}`),
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -293,7 +290,7 @@ export default function BancosPage() {
     if (!confirm(`¿Archivar (eliminar) la cuenta ${id_banco_cobro}?`)) return;
 
     const res = await fetch(
-      `${API_URL}/api/bancos/${encodeURIComponent(id_banco_cobro)}/archivar`,
+      apiUrl(`/api/bancos/${encodeURIComponent(id_banco_cobro)}/archivar`),
       { method: "PATCH" }
     );
 
