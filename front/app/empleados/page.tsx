@@ -521,7 +521,7 @@ export default function EmpleadosPage() {
               {/* Tracker */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  CÃ³digo App Fichaje (Tracker)
+                  Código App Fichaje (Tracker)
                 </label>
                 <input
                   value={tracker}
@@ -587,7 +587,7 @@ export default function EmpleadosPage() {
               {/* MatrÃ­cula */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  MatrÃ­cula (opcional)
+                  Matrí­cula (opcional)
                 </label>
                 <input
                   value={matricula}
