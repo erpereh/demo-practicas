@@ -11,3 +11,4 @@ python-multipart
 reportlab
 flask
 flask-cors
+a2wsgi
