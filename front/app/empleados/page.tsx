@@ -45,7 +45,7 @@ const parseFastApiError = async (res: Response) => {
 
 export default function EmpleadosPage() {
   // ------------- CONFIG API -------------
-  // URL base del backend (configurable con NEXT_PUBLIC_API_URL o por defecto 127.0.0.1:8000)
+  // URL base del backend centralizada en apiUrl.
 
   // ------------- ESTADO UI (BÃšSQUEDA Y MODAL) -------------
   // searchTerm: texto del input de bÃºsqueda

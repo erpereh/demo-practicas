@@ -23,7 +23,7 @@ import { apiUrl } from "@/lib/api";
 
 // ------------- ENDPOINTS API -------------
 // Base de proyectos (CRUD) y base de clientes (para rellenar el <select>)
-// Nota: aquí están hardcodeados a localhost. Si usas variable de entorno, lo normal es API_URL.
+// Las llamadas al backend se construyen con apiUrl.
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 // Tipado mínimo del cliente para mostrar nombre en tabla y cargar el select.

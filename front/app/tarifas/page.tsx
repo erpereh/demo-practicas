@@ -98,7 +98,7 @@ export default function HistorialProyectos() {
     }>({});
 
     // ------------- CONFIG API -------------
-    // URL base del backend (configurable con NEXT_PUBLIC_API_URL o por defecto localhost:8000)
+    // URL base del backend centralizada en apiUrl.
 
     /* ============================================================
        ------------- CARGA DE DATOS -------------
