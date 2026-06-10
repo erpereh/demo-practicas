@@ -188,12 +188,13 @@ export default function HistorialProyectos() {
     // - valida empleado, proyecto y precio > 0
     // - si modoEdicion: usa PUT; si no: POST
     // - envía payload alineado con el backend (/api/tarifas)
-    // - en creación usa la fecha actual como fec_inicio
-    // - en edición mantiene la fecha_inicio original para identificar el registro
+    // - en creacion envia fec_inicio como nueva fecha efectiva
+    // - en edicion envia fec_inicio_original para localizar la fila anterior
+    //   y fec_inicio con el nuevo valor a guardar
     const handleGuardarTarifa = async () => {
         const nuevosErrores: any = {};
-        if (!modoEdicion && !fechaInicio) {
-        nuevosErrores.general = "Debes seleccionar una fecha de inicio.";
+        if (!fechaInicio) {
+            nuevosErrores.general = "Debes seleccionar una fecha de inicio.";
         }
 
         // Validación de selección de empleado/proyecto
@@ -225,11 +226,14 @@ export default function HistorialProyectos() {
                 method,
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    id_sociedad: "01",
+                    id_sociedad: modoEdicion ? tarifaEditando?.id_sociedad : "01",
                     id_empleado: empSeleccionado,
-                    id_cliente: "CYC",
+                    id_cliente: modoEdicion ? tarifaEditando?.cliente : "CYC",
                     id_proyecto: projSeleccionado,
-                    fec_inicio: modoEdicion ? tarifaEditando?.fecha_inicio : fechaInicio,
+                    ...(modoEdicion
+                        ? { fec_inicio_original: tarifaEditando?.fecha_inicio }
+                        : {}),
+                    fec_inicio: fechaInicio,
                     tarifa: precioNum
                 })
             });
@@ -265,6 +269,7 @@ export default function HistorialProyectos() {
 
         setEmpSeleccionado(tarifa.empleado);
         setProjSeleccionado(tarifa.proyecto);
+        setFechaInicio(tarifa.fecha_inicio);
         setPrecio(tarifa.tarifa.toString());
 
         setIsModalOpen(true);
@@ -452,7 +457,6 @@ export default function HistorialProyectos() {
                                     className={`w-full border rounded-lg px-3 py-2 outline-none transition-colors ${
                                         errores.general ? 'border-quality-red focus:ring-quality-red/20' : 'border-gray-300 focus:ring-quality-dark/20 focus:border-quality-dark'
                                     }`}
-                                    disabled={modoEdicion} // opcional: si quieres bloquear en edición
                                 />
 
                             </div>

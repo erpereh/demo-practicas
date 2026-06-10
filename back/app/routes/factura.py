@@ -15,6 +15,7 @@ Se ha realizado la conexión con la Base de Datos
 Este módulo representa lógica de negocio pura.
 """
 import os
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
@@ -326,9 +327,10 @@ def generar_pdf(num_factura: str, db: Session = Depends(get_db)):
     # ============================================================
     # PLACEHOLDER IMAGEN
     # ============================================================
-    logo_path = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "static", "logo.png")
-    )
+    current_file = Path(__file__).resolve()
+    repo_root = current_file.parents[3]
+    icon_path = repo_root / "front" / "public" / "icon.png"
+    legacy_logo_path = current_file.parents[1] / "static" / "logo.png"
 
     def placeholder_imagen(width=140, height=55):
         d = Drawing(width, height)
@@ -338,8 +340,9 @@ def generar_pdf(num_factura: str, db: Session = Depends(get_db)):
 
     # Si el logo existe → usarlo
     # Si no existe → usar placeholder
-    if os.path.exists(logo_path):
-        logo = Image(logo_path, width=140, height=55)
+    logo_source = icon_path if icon_path.exists() else legacy_logo_path
+    if logo_source.exists():
+        logo = Image(str(logo_source), width=140, height=55, kind="proportional")
     else:
         logo = placeholder_imagen()
 

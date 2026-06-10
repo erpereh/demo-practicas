@@ -59,6 +59,7 @@ class TarifaUpdate(BaseModel):
     id_empleado: str
     id_cliente: str
     id_proyecto: str
+    fec_inicio_original: date
     fec_inicio: date
     tarifa: float
 
@@ -173,7 +174,7 @@ def actualizar_tarifa(
     registro = db.query(HistProyecto).filter(
         HistProyecto.id_empleado == data.id_empleado,
         HistProyecto.id_proyecto == data.id_proyecto,
-        HistProyecto.fec_inicio == data.fec_inicio
+        HistProyecto.fec_inicio == data.fec_inicio_original
     ).first()
 
     if not registro:
@@ -182,9 +183,22 @@ def actualizar_tarifa(
             detail="Tarifa no encontrada"
         )
 
-    # Actualizamos campos modificables
+    if data.fec_inicio != data.fec_inicio_original:
+        duplicada = db.query(HistProyecto).filter(
+            HistProyecto.id_empleado == data.id_empleado,
+            HistProyecto.id_proyecto == data.id_proyecto,
+            HistProyecto.fec_inicio == data.fec_inicio
+        ).first()
+
+        if duplicada:
+            raise HTTPException(
+                status_code=409,
+                detail="Ya existe una tarifa para ese empleado/proyecto con esa fecha de inicio."
+            )
+
     registro.id_sociedad = data.id_sociedad
     registro.id_cliente = data.id_cliente
+    registro.fec_inicio = data.fec_inicio
     registro.tarifa = data.tarifa
 
     db.commit()
