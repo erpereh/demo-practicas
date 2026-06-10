@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Montserrat } from "next/font/google";
+import AuthGuard from "./components/AuthGuard";
+import LayoutContent from "./components/LayoutContent";
 import "./globals.css";
 
 // Importamos el nuevo componente del menú lateral
@@ -24,12 +26,11 @@ export default function RootLayout({
       <body className={`${montserrat.className} bg-quality-light flex h-screen overflow-hidden text-quality-dark`}>
 
         {/* MENÚ LATERAL DINÁMICO */}
-        <Sidebar />
-
-        {/* CONTENIDO PRINCIPAL (Aquí se cargan las páginas al hacer clic) */}
-        <main className="flex-1 bg-quality-light overflow-y-auto">
-          {children}
-        </main>
+        <AuthGuard>
+          <LayoutContent>
+            {children}
+          </LayoutContent>
+        </AuthGuard>
 
       </body>
     </html>

@@ -9,6 +9,7 @@ from app.database import engine, Base
 
 from app.routes.clientes import router as clientes_router
 from app.routes.empleados import router as empleados_router
+from app.routes.auth import router as auth_router
 from app.routes.bancos import router as bancos_router
 from app.routes.proyectos import router as proyectos_router
 from app.routes.horas_trab import router as horas_trab_router
@@ -51,6 +52,7 @@ app.add_middleware(
 # podéis ponerlo aquí directamente así: app.include_router(clientes_router, prefix="/api")
 app.include_router(clientes_router)
 app.include_router(empleados_router)
+app.include_router(auth_router)
 app.include_router(bancos_router)
 app.include_router(proyectos_router)
 app.include_router(horas_trab_router)
