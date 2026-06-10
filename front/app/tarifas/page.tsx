@@ -216,19 +216,36 @@ export default function HistorialProyectos() {
             setIsSaving(true);
             setErrores({});
 
+            if (modoEdicion && !tarifaEditando) {
+                setErrores({ general: "No se encontró la tarifa seleccionada." });
+                return;
+            }
+
+            let idSociedadPayload = tarifaEditando?.id_sociedad || "";
+            let idClientePayload = tarifaEditando?.cliente || "";
+
+            if (!modoEdicion) {
+                const proyectoSeleccionado = proyectos.find(p => p.id_proyecto === projSeleccionado);
+                if (!proyectoSeleccionado) {
+                    setErrores({ general: "No se encontró el proyecto seleccionado." });
+                    return;
+                }
+                idSociedadPayload = proyectoSeleccionado.id_sociedad;
+                idClientePayload = proyectoSeleccionado.id_cliente;
+            }
+
             // Define método HTTP en base a si estamos creando o editando
             const method = modoEdicion ? "PUT" : "POST";
 
-            // Envía al backend la asignación tarifa:
-            // NOTA: aquí hay valores fijos (id_sociedad "01" e id_cliente "CYC")
-            // Si más adelante quieres hacerlo dinámico, vendrían del proyecto o del selector.
+            // En creacion, sociedad y cliente vienen del proyecto seleccionado.
+            // En edicion se mantienen los datos de la fila original.
             const res = await fetch(apiUrl("/api/tarifas"), {
                 method,
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    id_sociedad: modoEdicion ? tarifaEditando?.id_sociedad : "01",
+                    id_sociedad: idSociedadPayload,
                     id_empleado: empSeleccionado,
-                    id_cliente: modoEdicion ? tarifaEditando?.cliente : "CYC",
+                    id_cliente: idClientePayload,
                     id_proyecto: projSeleccionado,
                     ...(modoEdicion
                         ? { fec_inicio_original: tarifaEditando?.fecha_inicio }
