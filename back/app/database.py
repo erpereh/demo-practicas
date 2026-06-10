@@ -1,5 +1,6 @@
 import os
 import urllib.parse
+from typing import Dict, List
 
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
@@ -11,9 +12,9 @@ load_dotenv()
 REQUIRED_DB_ENV_VARS = ("DB_USER", "DB_PASSWORD", "DB_HOST", "DB_PORT", "DB_NAME")
 
 
-def _require_db_env() -> dict[str, str]:
-    values: dict[str, str] = {}
-    missing: list[str] = []
+def _require_db_env() -> Dict[str, str]:
+    values: Dict[str, str] = {}
+    missing: List[str] = []
 
     for key in REQUIRED_DB_ENV_VARS:
         value = os.getenv(key)

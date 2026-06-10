@@ -8,6 +8,8 @@ Prefijo: /api/proyectos
 Tag OpenAPI: Proyectos
 """
 
+from typing import Dict, List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy import select, or_, func
@@ -27,7 +29,7 @@ router = APIRouter(
 # FUNCIÓN PRIVADA: ENRIQUECER PROYECTOS
 # ============================================================
 
-def _enriquecer(proyectos: list[Proyecto], db: Session) -> list[dict]:
+def _enriquecer(proyectos: List[Proyecto], db: Session) -> List[Dict]:
     """
     Enriquece la lista de proyectos con información básica del cliente.
 
@@ -40,11 +42,11 @@ def _enriquecer(proyectos: list[Proyecto], db: Session) -> list[dict]:
     Evita el problema N+1 queries.
 
     Returns:
-        list[dict]
+        List[Dict]
     """
 
     ids = {p.id_cliente for p in proyectos if p.id_cliente}
-    clientes_map: dict[str, Cliente] = {}
+    clientes_map: Dict[str, Cliente] = {}
 
     if ids:
         rows = db.execute(
@@ -84,12 +86,12 @@ def _enriquecer(proyectos: list[Proyecto], db: Session) -> list[dict]:
 # LISTAR PROYECTOS
 # ============================================================
 
-@router.get("/", response_model=list[ProyectoOut])
+@router.get("/", response_model=List[ProyectoOut])
 def listar_proyectos(
     db: Session = Depends(get_db),
-    q: str | None = Query(default=None),
-    id_sociedad: str | None = Query(default=None),
-    id_cliente: str | None = Query(default=None),
+    q: Optional[str] = Query(default=None),
+    id_sociedad: Optional[str] = Query(default=None),
+    id_cliente: Optional[str] = Query(default=None),
 ):
     """
     Recupera proyectos con filtros opcionales.

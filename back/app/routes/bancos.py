@@ -13,6 +13,8 @@ Notas de diseño:
 - No existe soft-delete; archivar = delete real.
 """
 
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import select
@@ -24,7 +26,7 @@ from app.schemas.banco import BancoCreate, BancoUpdate, BancoOut
 router = APIRouter(prefix="/api/bancos", tags=["Bancos"])
 
 
-@router.get("/", response_model=list[BancoOut])
+@router.get("/", response_model=List[BancoOut])
 def listar_bancos(db: Session = Depends(get_db)):
     """
     Devuelve todas las cuentas bancarias registradas.

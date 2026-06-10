@@ -3,6 +3,7 @@
 # e incluyen validación fuerte de DNI/NIE y normalización de textos.
 
 import re
+from typing import Optional
 
 try:
     from pydantic import BaseModel, Field, field_validator
@@ -19,7 +20,7 @@ NIF_LETTERS = "TRWAGMYFPDXBNJZSQVHLCKE"
 # - quita espacios al principio y al final
 # - colapsa múltiples espacios en uno solo
 # - devuelve None si queda vacío.
-def clean(s: str | None) -> str | None:
+def clean(s: Optional[str]) -> Optional[str]:
     if s is None:
         return None
     s = " ".join(s.strip().split())
@@ -68,7 +69,7 @@ class EmpleadoCreate(BaseModel):
     id_empleado_tracker: str = Field(..., min_length=1, max_length=100)
     nombre: str = Field(..., min_length=2, max_length=50)
     apellidos: str = Field(..., min_length=2, max_length=100)
-    matricula: str | None = Field(default=None, max_length=50)
+    matricula: Optional[str] = Field(default=None, max_length=50)
 
     if V2:
         # Validador de EmpleadoCreate.id_empleado:
@@ -103,7 +104,7 @@ class EmpleadoCreate(BaseModel):
         # normaliza el texto y convierte valores vacíos en None para guardar NULL en la BBDD.
         @field_validator("matricula")
         @classmethod
-        def v_matricula(cls, v: str | None) -> str | None:
+        def v_matricula(cls, v: Optional[str]) -> Optional[str]:
             return clean(v)
     else:
         @validator("id_empleado")
@@ -125,17 +126,17 @@ class EmpleadoCreate(BaseModel):
             return v2
 
         @validator("matricula")
-        def v_matricula(cls, v: str | None) -> str | None:
+        def v_matricula(cls, v: Optional[str]) -> Optional[str]:
             return clean(v)
 
 # -------------- ACTUALIZAR EMPLEADOS --------------
 # todos los campos son opcionales para permitir actualizaciones parciales
 # (solo se envía lo que se quiera cambiar).
 class EmpleadoUpdate(BaseModel):
-    id_empleado_tracker: str | None = Field(default=None, min_length=1, max_length=100)
-    nombre: str | None = Field(default=None, min_length=2, max_length=50)
-    apellidos: str | None = Field(default=None, min_length=2, max_length=100)
-    matricula: str | None = Field(default=None, max_length=50)
+    id_empleado_tracker: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    nombre: Optional[str] = Field(default=None, min_length=2, max_length=50)
+    apellidos: Optional[str] = Field(default=None, min_length=2, max_length=100)
+    matricula: Optional[str] = Field(default=None, max_length=50)
 
 
 # -------------- Modelo de SALIDA EmpleadoOut --------------
@@ -149,7 +150,7 @@ class EmpleadoOut(BaseModel):
     id_empleado_tracker: str
     nombre: str
     apellidos: str
-    matricula: str | None = None
+    matricula: Optional[str] = None
 
     if V2:
         model_config = {"from_attributes": True}

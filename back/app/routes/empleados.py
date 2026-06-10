@@ -12,6 +12,8 @@ Notas:
 - Las validaciones previas evitan errores de integridad SQL.
 """
 
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import select
@@ -23,7 +25,7 @@ from app.schemas.empleados import EmpleadoCreate, EmpleadoUpdate, EmpleadoOut
 router = APIRouter(prefix="/api/empleados", tags=["Empleados"])
 
 
-@router.get("/", response_model=list[EmpleadoOut])
+@router.get("/", response_model=List[EmpleadoOut])
 def listar_empleados(db: Session = Depends(get_db)):
     """
     Devuelve todos los empleados registrados.

@@ -7,7 +7,7 @@
 import re
 from datetime import date
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, Union
 
 # ------------- COMPATIBILIDAD PYDANTIC v1 / v2 -------------
 # Importa Pydantic detectando si estamos en v2 (field_validator) o v1 (validator),
@@ -23,7 +23,7 @@ except Exception:
 # - quita espacios al principio y al final
 # - colapsa espacios múltiples a uno solo
 # - devuelve None si el texto queda vacío
-def _clean_text(s: str | None) -> str | None:
+def _clean_text(s: Optional[str]) -> Optional[str]:
     if s is None:
         return None
     s = " ".join(s.strip().split())
@@ -48,7 +48,7 @@ def _validate_tipo_pago(v: str) -> str:
 # - admite date ya construido o string
 # - si es string, intenta parsear formato ISO (YYYY-MM-DD)
 # - si falla, lanza error explicando el formato esperado
-def _validate_fecha(v: date | str) -> date:
+def _validate_fecha(v: Union[date, str]) -> date:
     if isinstance(v, date):
         return v
     try:
@@ -63,7 +63,7 @@ def _validate_fecha(v: date | str) -> date:
 # - impide valores negativos
 # - impide que supere el máximo permitido (15 dígitos, 2 decimales)
 # - devuelve Decimal normalizado o None si no se informa
-def _validate_precio(v: Decimal | float | None) -> Decimal | None:
+def _validate_precio(v: Optional[Union[Decimal, float]]) -> Optional[Decimal]:
     if v is None:
         return None
     try:
@@ -100,7 +100,7 @@ class ProyectoCreate(BaseModel):
     nombre_proyecto: str = Field(..., min_length = 1, max_length = 255)
     codigo_proyecto_tracker: str = Field(..., min_length = 1, max_length = 100)
     tipo_pago: str = Field(..., min_length = 1, max_length = 50)
-    precio: Decimal | None = Field(default = None)
+    precio: Optional[Decimal] = Field(default = None)
     fec_inicio: date = Field(...)
 
     if V2:
@@ -181,7 +181,7 @@ class ProyectoCreate(BaseModel):
         # - impide negativo y controla límite máximo
         @field_validator("precio", mode="before")
         @classmethod
-        def val_precio(cls, v) -> Decimal | None:
+        def val_precio(cls, v) -> Optional[Decimal]:
             return _validate_precio(v)
 
     else:
@@ -237,11 +237,11 @@ class ProyectoCreate(BaseModel):
 # todos los campos son opcionales para permitir cambios parciales,
 # aplicando las mismas validaciones que en create cuando el campo viene informado.
 class ProyectoUpdate(BaseModel):
-    nombre_proyecto: str | None = Field(default = None, min_length = 1, max_length = 255)
-    codigo_proyecto_tracker: str | None = Field(default = None, min_length = 1, max_length = 100)
-    tipo_pago: str | None = Field(default = None, min_length = 1, max_length = 50)
-    precio: Decimal | None = Field(default = None)
-    fec_inicio: date | None = Field(default = None)
+    nombre_proyecto: Optional[str] = Field(default = None, min_length = 1, max_length = 255)
+    codigo_proyecto_tracker: Optional[str] = Field(default = None, min_length = 1, max_length = 100)
+    tipo_pago: Optional[str] = Field(default = None, min_length = 1, max_length = 50)
+    precio: Optional[Decimal] = Field(default = None)
+    fec_inicio: Optional[date] = Field(default = None)
 
     if V2:
         # Validador de ProyectoUpdate.nombre_proyecto:
@@ -249,7 +249,7 @@ class ProyectoUpdate(BaseModel):
         # - si viene texto, se limpia y exige longitud mínima
         @field_validator("nombre_proyecto")
         @classmethod
-        def val_nombre(cls, v: str | None) -> str | None:
+        def val_nombre(cls, v: Optional[str]) -> Optional[str]:
             if v is None:
                 return None
             v2 = _clean_text(v) or ""
@@ -262,7 +262,7 @@ class ProyectoUpdate(BaseModel):
         # - evita guardar valores con espacios basura
         @field_validator("codigo_proyecto_tracker")
         @classmethod
-        def val_tracker(cls, v: str | None) -> str | None:
+        def val_tracker(cls, v: Optional[str]) -> Optional[str]:
             if v is None:
                 return None
             return (_clean_text(v) or "").upper()
@@ -271,7 +271,7 @@ class ProyectoUpdate(BaseModel):
         # - si viene, se valida contra TIPOS_PAGO_VALIDOS
         @field_validator("tipo_pago")
         @classmethod
-        def val_tipo_pago(cls, v: str | None) -> str | None:
+        def val_tipo_pago(cls, v: Optional[str]) -> Optional[str]:
             if v is None:
                 return None
             return _validate_tipo_pago(v)
@@ -280,7 +280,7 @@ class ProyectoUpdate(BaseModel):
         # - si viene, se parsea/valida a date (ISO YYYY-MM-DD)
         @field_validator("fec_inicio", mode="before")
         @classmethod
-        def val_fecha(cls, v) -> date | None:
+        def val_fecha(cls, v) -> Optional[date]:
             if v is None:
                 return None
             return _validate_fecha(v)
@@ -290,7 +290,7 @@ class ProyectoUpdate(BaseModel):
         # - valida límites y no negatividad
         @field_validator("precio", mode="before")
         @classmethod
-        def val_precio(cls, v) -> Decimal | None:
+        def val_precio(cls, v) -> Optional[Decimal]:
             return _validate_precio(v)
 
     else:
@@ -340,7 +340,7 @@ class ProyectoOut(BaseModel):
     nombre_proyecto: str
     codigo_proyecto_tracker: str
     tipo_pago: str
-    precio: Decimal | None = None
+    precio: Optional[Decimal] = None
     fec_inicio: date
     cliente: Optional[ClienteEmbed] = None
 

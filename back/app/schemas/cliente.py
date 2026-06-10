@@ -3,6 +3,7 @@
 # normaliza textos y valida que los identificadores fiscales españoles
 # (CIF, NIF, NIE) tengan un formato y letra de control correctos.
 import re
+from typing import Optional
 
 # Importa Pydantic de forma compatible con v1 y v2:
 # intenta usar field_validator (v2) y, si no existe, cae a validator (v1).
@@ -23,7 +24,7 @@ CIF_CONTROL_LETTERS = "JABCDEFGHI"
 # - quita espacios al principio y al final
 # - colapsa espacios múltiples en uno solo
 # - devuelve None si el resultado queda vacío.
-def _clean_text(s: str | None) -> str | None:
+def _clean_text(s: Optional[str]) -> Optional[str]:
     if s is None:
         return None
     s = " ".join(s.strip().split())
@@ -110,11 +111,11 @@ class ClienteCreate(BaseModel):
     id_cliente: str = Field(..., min_length=2, max_length=20)
     n_cliente: str = Field(..., min_length=2, max_length=255)
     cif: str = Field(..., min_length=8, max_length=20)
-    persona_contacto: str | None = Field(default=None, max_length=255)
-    direccion: str | None = Field(default=None, max_length=1000)
-    email: str | None = Field(default=None, max_length=255)
-    telefono: str | None = Field(default=None, max_length=50)
-    id_banco_cobro: str | None = None
+    persona_contacto: Optional[str] = Field(default=None, max_length=255)
+    direccion: Optional[str] = Field(default=None, max_length=1000)
+    email: Optional[str] = Field(default=None, max_length=255)
+    telefono: Optional[str] = Field(default=None, max_length=50)
+    id_banco_cobro: Optional[str] = None
 
     # salida para frontend
     activo: bool = True
@@ -172,12 +173,12 @@ class ClienteCreate(BaseModel):
         # - convierte cadenas en blanco en None, para no guardar "vacío" en la BBDD.
         @field_validator("persona_contacto", "direccion")
         @classmethod
-        def val_text(cls, v: str | None) -> str | None:
+        def val_text(cls, v: Optional[str]) -> Optional[str]:
             return _clean_text(v)
 
         @field_validator("email", "telefono")
         @classmethod
-        def val_contact_extra(cls, v: str | None) -> str | None:
+        def val_contact_extra(cls, v: Optional[str]) -> Optional[str]:
             return _clean_text(v)
         
     else:
@@ -207,11 +208,11 @@ class ClienteCreate(BaseModel):
             return validate_spanish_tax_id(v)
 
         @validator("persona_contacto", "direccion")
-        def val_text(cls, v: str | None) -> str | None:
+        def val_text(cls, v: Optional[str]) -> Optional[str]:
             return _clean_text(v)
 
         @validator("email", "telefono")
-        def val_contact_extra(cls, v: str | None) -> str | None:
+        def val_contact_extra(cls, v: Optional[str]) -> Optional[str]:
             return _clean_text(v)
 
 
@@ -219,13 +220,13 @@ class ClienteCreate(BaseModel):
 # todos los campos son opcionales, porque en un PUT de edición
 # sólo se envían los datos que se quieren modificar.
 class ClienteUpdate(BaseModel):
-    n_cliente: str | None = Field(default=None, min_length=2, max_length=255)
-    cif: str | None = Field(default=None, min_length=8, max_length=20)
-    persona_contacto: str | None = Field(default=None, max_length=255)
-    direccion: str | None = Field(default=None, max_length=1000)
-    email: str | None = Field(default=None, max_length=255)
-    telefono: str | None = Field(default=None, max_length=50)
-    id_banco_cobro: str | None = None
+    n_cliente: Optional[str] = Field(default=None, min_length=2, max_length=255)
+    cif: Optional[str] = Field(default=None, min_length=8, max_length=20)
+    persona_contacto: Optional[str] = Field(default=None, max_length=255)
+    direccion: Optional[str] = Field(default=None, max_length=1000)
+    email: Optional[str] = Field(default=None, max_length=255)
+    telefono: Optional[str] = Field(default=None, max_length=50)
+    id_banco_cobro: Optional[str] = None
 
     if V2:
 
@@ -234,7 +235,7 @@ class ClienteUpdate(BaseModel):
         # sólo se envían los datos que se quieren modificar.
         @field_validator("n_cliente")
         @classmethod
-        def val_nombre(cls, v: str | None) -> str | None:
+        def val_nombre(cls, v: Optional[str]) -> Optional[str]:
             if v is None:
                 return None
             v2 = _clean_text(v) or ""
@@ -248,7 +249,7 @@ class ClienteUpdate(BaseModel):
         # - si viene texto, se limpia y se exige longitud mínima de 2 caracteres.
         @field_validator("cif")
         @classmethod
-        def val_cif(cls, v: str | None) -> str | None:
+        def val_cif(cls, v: Optional[str]) -> Optional[str]:
             if v is None:
                 return None
             return validate_spanish_tax_id(v)
@@ -258,16 +259,16 @@ class ClienteUpdate(BaseModel):
         #   cadenas vacías en None.
         @field_validator("persona_contacto", "direccion")
         @classmethod
-        def val_text(cls, v: str | None) -> str | None:
+        def val_text(cls, v: Optional[str]) -> Optional[str]:
             return _clean_text(v)
         
         @field_validator("email", "telefono")
         @classmethod
-        def val_contact_extra(cls, v: str | None) -> str | None:
+        def val_contact_extra(cls, v: Optional[str]) -> Optional[str]:
             return _clean_text(v)
     else:
         @validator("n_cliente")
-        def val_nombre(cls, v: str | None) -> str | None:
+        def val_nombre(cls, v: Optional[str]) -> Optional[str]:
             if v is None:
                 return None
             v2 = _clean_text(v) or ""
@@ -276,17 +277,17 @@ class ClienteUpdate(BaseModel):
             return v2
 
         @validator("cif")
-        def val_cif(cls, v: str | None) -> str | None:
+        def val_cif(cls, v: Optional[str]) -> Optional[str]:
             if v is None:
                 return None
             return validate_spanish_tax_id(v)
 
         @validator("persona_contacto", "direccion")
-        def val_text(cls, v: str | None) -> str | None:
+        def val_text(cls, v: Optional[str]) -> Optional[str]:
             return _clean_text(v)
         
         @validator("email", "telefono")
-        def val_contact_extra(cls, v: str | None) -> str | None:
+        def val_contact_extra(cls, v: Optional[str]) -> Optional[str]:
             return _clean_text(v)
 
 
@@ -305,11 +306,11 @@ class ClienteOut(BaseModel):
     id_cliente: str
     n_cliente: str
     cif: str
-    persona_contacto: str | None = None
-    direccion: str | None = None
-    email: str | None = None
-    telefono: str | None = None
-    id_banco_cobro: str | None = None
+    persona_contacto: Optional[str] = None
+    direccion: Optional[str] = None
+    email: Optional[str] = None
+    telefono: Optional[str] = None
+    id_banco_cobro: Optional[str] = None
 
 
     activo: bool = True

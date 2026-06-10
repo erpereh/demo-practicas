@@ -84,7 +84,7 @@ def listar_tarifas(db: Session = Depends(get_db)):
     Recupera todas las tarifas registradas en la tabla HistProyecto.
 
     Returns:
-        list[dict]: Lista de tarifas en formato JSON.
+        List[Dict]: Lista de tarifas en formato JSON.
     """
 
     registros = db.query(HistProyecto).all()

@@ -2,6 +2,8 @@
 # lista, crea, edita y archiva registros de la tabla CLIENTES,
 # aplicando las reglas de negocio de IDs, CIF y unicidad por sociedad.
 
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import select
@@ -14,7 +16,7 @@ router = APIRouter(prefix="/api/clientes", tags=["Clientes"])
 
 # Obtiene y devuelve la lista completa de clientes desde la base de datos
 # usando SQLAlchemy (SELECT * FROM CLIENTES) y la mapea al schema ClienteOut.
-@router.get("/", response_model=list[ClienteOut])
+@router.get("/", response_model=List[ClienteOut])
 def listar_clientes(db: Session = Depends(get_db)):
     return db.execute(select(Cliente)).scalars().all()
 

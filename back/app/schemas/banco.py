@@ -3,6 +3,7 @@
 # normalizan textos y validan IBAN (formato general + regla específica para ES).
 
 import re
+from typing import Optional
 
 # Importa Pydantic de forma compatible con v1 y v2:
 # si existe field_validator (v2) lo usa; si no, usa validator (v1).
@@ -17,7 +18,7 @@ except Exception:
 # - quita espacios al principio y al final
 # - colapsa múltiples espacios en uno solo
 # - devuelve None si queda vacío.
-def clean(s: str | None) -> str | None:
+def clean(s: Optional[str]) -> Optional[str]:
     if s is None:
         return None
     s = " ".join(s.strip().split())
@@ -30,7 +31,7 @@ def clean(s: str | None) -> str | None:
 # - si empieza por "ES", exige longitud exacta de 24 caracteres (IBAN español)
 # - limita longitud total a 50 (por el varchar(50) de la columna)
 # - devuelve el IBAN ya limpio o None si no se informó.
-def normalize_iban(v: str | None) -> str | None:
+def normalize_iban(v: Optional[str]) -> Optional[str]:
     if v is None:
         return None
     v = re.sub(r"\s+", "", v).upper()
@@ -55,8 +56,8 @@ class BancoCreate(BaseModel):
     id_sociedad: str = Field(..., min_length=1, max_length=10)
     id_banco_cobro: str = Field(..., min_length=1, max_length=20)
     n_banco_cobro: str = Field(..., min_length=2, max_length=150)
-    num_cuenta: str | None = Field(default=None, max_length=50)
-    codigo_iban: str | None = Field(default=None, max_length=50)
+    num_cuenta: Optional[str] = Field(default=None, max_length=50)
+    codigo_iban: Optional[str] = Field(default=None, max_length=50)
 
     if V2:
         # Validador de BancoCreate.id_sociedad:
@@ -98,7 +99,7 @@ class BancoCreate(BaseModel):
         # - convierte cadenas vacías en None para guardar NULL en la base de datos.
         @field_validator("num_cuenta")
         @classmethod
-        def v_num_cuenta(cls, v: str | None) -> str | None:
+        def v_num_cuenta(cls, v: Optional[str]) -> Optional[str]:
             return clean(v)
 
         # Validador de BancoCreate.codigo_iban:
@@ -106,7 +107,7 @@ class BancoCreate(BaseModel):
         # - y asegurar que cumple formato general + regla ES(24) si corresponde.
         @field_validator("codigo_iban")
         @classmethod
-        def v_iban(cls, v: str | None) -> str | None:
+        def v_iban(cls, v: Optional[str]) -> Optional[str]:
             return normalize_iban(v)
     else:
         @validator("id_sociedad")
@@ -131,19 +132,19 @@ class BancoCreate(BaseModel):
             return v2
 
         @validator("num_cuenta")
-        def v_num_cuenta(cls, v: str | None) -> str | None:
+        def v_num_cuenta(cls, v: Optional[str]) -> Optional[str]:
             return clean(v)
 
         @validator("codigo_iban")
-        def v_iban(cls, v: str | None) -> str | None:
+        def v_iban(cls, v: Optional[str]) -> Optional[str]:
             return normalize_iban(v)
 
 # ------------- ACTUALIZAR BANCOS -------------
 # todos los campos son opcionales para permitir actualizaciones parciales.
 class BancoUpdate(BaseModel):
-    n_banco_cobro: str | None = Field(default=None, min_length=2, max_length=150)
-    num_cuenta: str | None = Field(default=None, max_length=50)
-    codigo_iban: str | None = Field(default=None, max_length=50)
+    n_banco_cobro: Optional[str] = Field(default=None, min_length=2, max_length=150)
+    num_cuenta: Optional[str] = Field(default=None, max_length=50)
+    codigo_iban: Optional[str] = Field(default=None, max_length=50)
 
 # ------------- Modelo de SALIDA BancoOut -------------
 # define los campos que el backend devuelve al frontend al listar o consultar bancos.
@@ -155,8 +156,8 @@ class BancoOut(BaseModel):
     id_sociedad: str
     id_banco_cobro: str
     n_banco_cobro: str
-    num_cuenta: str | None = None
-    codigo_iban: str | None = None
+    num_cuenta: Optional[str] = None
+    codigo_iban: Optional[str] = None
 
     if V2:
         model_config = {"from_attributes": True}

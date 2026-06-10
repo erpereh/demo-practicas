@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from uuid import uuid4
+from typing import Dict, List, Optional
 
 import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -13,7 +14,7 @@ from app.database import get_db
 
 router = APIRouter(tags=["Importacion de horas"])
 
-_PREVIEW_CACHE: dict[str, list[dict]] = {}
+_PREVIEW_CACHE: Dict[str, List[Dict]] = {}
 
 
 @router.post("/preview-horas")
@@ -26,8 +27,8 @@ async def preview_horas(archivo: UploadFile = File(...), db: Session = Depends(g
     df.columns = df.columns.str.strip().str.replace("\n", "", regex=False)
     df = df.map(lambda value: value.strip() if isinstance(value, str) else value)
 
-    filas_validas: list[dict] = []
-    errores: list[dict] = []
+    filas_validas: List[Dict] = []
+    errores: List[Dict] = []
     total_horas = 0.0
 
     for index, fila in df.iterrows():
@@ -105,7 +106,7 @@ async def preview_horas(archivo: UploadFile = File(...), db: Session = Depends(g
 
 
 @router.post("/confirm-horas")
-def confirm_horas(data: dict | None = None, db: Session = Depends(get_db)):
+def confirm_horas(data: Optional[Dict] = None, db: Session = Depends(get_db)):
     import_token = (data or {}).get("import_token")
     filas_validas = _PREVIEW_CACHE.get(import_token or "")
 

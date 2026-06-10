@@ -1,4 +1,5 @@
 import os
+from typing import List
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,7 +29,7 @@ app = FastAPI(
 )
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
-ALLOWED_ORIGINS: list[str] = []
+ALLOWED_ORIGINS: List[str] = []
 for origin in (FRONTEND_URL, "http://localhost:3000", "http://127.0.0.1:3000"):
     if origin and origin not in ALLOWED_ORIGINS:
         ALLOWED_ORIGINS.append(origin)
