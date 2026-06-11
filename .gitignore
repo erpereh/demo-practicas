@@ -1,24 +1,30 @@
-# Variables de entorno
+# Environment files
 .env
+.env.local
+.env.*
+!.env.example
+!.env.local.example
 
-# Ignorar entorno virtual
-back/venv/
+# Dependencies
+node_modules/
+
+# Next.js and build output
+.next/
+out/
+build/
+dist/
+*.zip
 
 # Python
+back/venv/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-# VS Code
-.vscode/.vscode/
+# Editors and OS files
 .vscode/
-.next/dev/static/chunks/_a0ff3932._.js
-.next/dev/static/chunks/_a0ff3932._.js
-*.css
-.next/dev/static/chunks/app_layout_tsx_1cf6b850._.js
-*.js
-*.js
+.DS_Store
+
+# Keep the cPanel Node App entrypoint tracked.
 !front/server.js
-.next/dev/static/chunks/\[next\]_internal_font_google_montserrat_a93acac_module_css_bad6b30c._.single.css.map
-*.css
